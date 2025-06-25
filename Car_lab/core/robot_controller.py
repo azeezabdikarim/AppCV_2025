@@ -234,7 +234,7 @@ class RobotController:
                         
                         if self.picar:
                             self.picar.set_dir_servo_angle(steering_angle)
-                            self.picar.forward(100)  # 1% speed
+                            self.picar.forward(10)  # 10% speed
                 
             except Exception as e:
                 print(f"Line following error: {e}")
