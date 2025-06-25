@@ -304,7 +304,7 @@ class LineFollower:
         
         # Combine terms and limit output
         steering_angle = proportional + integral + derivative
-        steering_angle = np.clip(steering_angle, -45, 45)
+        steering_angle = np.clip(steering_angle, -30, 30)
         
         # Update state
         self.previous_error = self.current_error
