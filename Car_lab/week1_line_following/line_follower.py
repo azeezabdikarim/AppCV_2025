@@ -1,313 +1,457 @@
-
-# =============================================================================
-# IMPLEMENTATION STRATEGY
-# =============================================================================
-
-"""
-APPROACH THIS STEP-BY-STEP:
-
-PHASE 1 - GET BASIC DETECTION WORKING:
-□ Extract ROI from bottom portion of image
-□ Convert to grayscale 
-□ Apply Canny edge detection
-□ Verify you can see edges in debug visualization
-
-PHASE 2 - FIND LINES:
-□ Apply Hough transform to detect line segments
-□ Check debug data shows lines_detected > 0
-□ Visualize detected lines to verify they make sense
-
-PHASE 3 - CALCULATE POSITION:
-□ Filter lines by length and angle
-□ Calculate center points of line segments
-□ Combine multiple segments into single position
-
-PHASE 4 - IMPLEMENT CONTROL:
-□ Start with only P term (Ki=0, Kd=0)
-□ Tune Kp until robot follows line (may oscillate)
-□ Add D term to reduce oscillation
-□ Add I term only if steady-state error exists
-
-DEBUGGING TIPS:
-- Use debug_level parameter to see what's happening
-- Check lines_detected count in sidebar
-- Verify ROI is positioned correctly
-- Monitor processing time (should be <50ms)
-- Print intermediate values to understand failures
-
-COMMON PITFALLS:
-- ROI positioned wrong (no lines in region)
-- Canny thresholds too strict (no edges detected)
-- Hough parameters too strict (no lines found)
-- PID gains too high (oscillation/instability)
-- Forgetting to adjust coordinates for ROI offset
-"""
 #!/usr/bin/env python3
+
+"""
+Line Following Module - Week 1 Assignment
+=========================================
+
+This module provides the foundation for line following with computer vision.
+Students will complete the TODO sections to implement:
+1. ROI (Region of Interest) tuning
+2. Line detection with image processing
+3. Error calculation (image center - line center)
+4. PID parameter tuning
+
+The debug system works immediately - you'll see visual feedback even before
+completing the implementation.
+"""
 
 import cv2
 import numpy as np
 import time
 
 class LineFollower:
-    """
-    Week 1 Implementation: PID Line Following
-    
-    AVAILABLE OPENCV FUNCTIONS YOU MAY NEED:
-    - cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) - convert to grayscale
-    - cv2.GaussianBlur(image, (kernel_size, kernel_size), 0) - blur to reduce noise
-    - cv2.Canny(image, low_threshold, high_threshold) - edge detection
-    - cv2.HoughLinesP(edges, rho, theta, threshold, minLineLength, maxLineGap) - line detection
-    - cv2.rectangle(image, (x1,y1), (x2,y2), color, thickness) - draw rectangle
-    - cv2.line(image, (x1,y1), (x2,y2), color, thickness) - draw line
-    - cv2.circle(image, (center_x, center_y), radius, color, thickness) - draw circle
-    
-    USEFUL NUMPY FUNCTIONS:
-    - np.sqrt() - square root
-    - np.arctan2(y, x) - angle from coordinates
-    - np.mean() - average of array
-    - np.clip(value, min_val, max_val) - constrain value to range
-    
-    ALGORITHM OVERVIEW:
-    1. Extract region of interest from camera frame
-    2. Convert to grayscale and apply edge detection
-    3. Find line segments using Hough transform
-    4. Calculate center position of detected lines
-    5. Use PID control to convert position error to steering angle
-    
-    IMAGE DIMENSIONS: 320px wide × 240px tall
-    """
-    
     def __init__(self):
-        """Initialize PID controller and line detection parameters"""
+        """Initialize the line follower with default parameters"""
         
-        # PID Controller Parameters - TUNE THESE!
-        self.Kp = 0.0  # Start around 0.5-1.0
-        self.Ki = 0.0  # Start with 0, add later if needed
-        self.Kd = 0.0  # Around 0.1 to reduce oscillation
+        # =================================================================
+        # STUDENT TUNING SECTION - MODIFY THESE VALUES
+        # =================================================================
         
-        # PID controller state
-        self.integral = 0.0
-        self.last_error = 0.0
+        # ROI (Region of Interest) - Focus on road area
+        # TODO: Adjust these values to crop the image to just the road area
+        # Start with full frame, then gradually shrink to focus on the line
+        self.roi_top_offset = 0.3      # 0.0 = top of image, 1.0 = bottom
+        self.roi_bottom_offset = 0.3   # portion of image height to include
+        self.roi_left_offset = 0.1     # portion of image width to start from
+        self.roi_right_offset = 0.9    # portion of image width to end at
+        
+        # Image processing parameters
+        # TODO: Experiment with these values for better line detection
+        self.blur_kernel_size = 5      # Must be odd number (3, 5, 7, 9...)
+        self.canny_low_threshold = 50  # Lower values = more edges detected
+        self.canny_high_threshold = 150 # Higher values = only strong edges
+        
+        # PID Controller parameters  
+        # TODO: Tune these for smooth steering response
+        self.Kp = 0.8    # Proportional gain - how strongly to respond to current error
+        self.Ki = 0.1    # Integral gain - how strongly to respond to accumulated error
+        self.Kd = 0.3    # Derivative gain - how strongly to respond to error changes
+        
+        # Speed control
+        self.base_speed = 100  # Base forward speed (0-255)
+        
+        # =================================================================
+        # SYSTEM VARIABLES - Don't modify these directly
+        # =================================================================
+        
+        # PID state variables
+        self.previous_error = 0.0
+        self.integral_error = 0.0
         self.last_time = time.time()
-        self.integral_limit = 100.0
         
-        # Computer Vision Parameters - EXPERIMENT WITH THESE!
-        self.canny_low = 50     # Try 50-100
-        self.canny_high = 150   # Try 150-300
-        
-        # Region of Interest - DEFINE THE SEARCH AREA!
-        self.crop_offset_y = 0    # Starting Y position (try 70-80% of image height)
-        self.crop_height = 60     # Height of ROI (try 15-25% of image height)
-        
-        # Image center for error calculation
-        self.image_center_x = 160  # 320px / 2
-        
-        # Steering limits
-        self.max_steering_angle = 30
-        
-        # Hough Transform Parameters - TUNE FOR LINE DETECTION!
-        self.hough_threshold = 30       # Min intersections (try 20-50)
-        self.hough_min_line_length = 30 # Min line length (try 20-50) 
-        self.hough_max_line_gap = 10    # Max gap in line (try 5-20)
-        
+        # Debug and visualization
         self.debug_frame = None
-        self.debug_data = {
+        self.current_debug_data = {
+            'error_px': 0.0,
+            'steering_angle': 0.0,
             'lines_detected': 0,
-            'processing_time_ms': 0.0
+            'roi_points': [],
+            'line_center': None,
+            'image_center': None
         }
         
-        print("✅ LineFollower initialized - Time to implement!")
+        print("✅ Line follower initialized")
+        print("🎯 TODO: Tune ROI parameters, image processing, and PID gains")
     
-    def compute_steering_angle(self, camera_frame, debug_level=0):
+    def compute_steering_angle(self, frame, debug_level=0):
         """
-        Main line following algorithm
+        Main function: compute steering angle from camera frame
         
-        Your mission:
-        1. Extract the bottom portion of the image where lines appear
-        2. Find edges using Canny edge detection  
-        3. Detect line segments with Hough transform
-        4. Calculate the center position of detected lines
-        5. Use PID control to generate steering commands
+        Args:
+            frame: Camera image (BGR format)
+            debug_level: 0-4, higher = more debug visualization
+            
+        Returns:
+            steering_angle: Float, degrees to steer (-90 to +90)
         """
-        
-        start_time = time.time()
-        
-        try:
-            if debug_level > 0:
-                self.debug_frame = camera_frame.copy()
-            
-            # =============================================================
-            # STEP 1: REGION OF INTEREST EXTRACTION
-            # TODO: Extract the region where you expect to find the line
-            # Think: Where in the image does the line appear? 
-            # Consider: You don't need the whole image, just the relevant part
-            # =============================================================
-            
-            roi = camera_frame  # REPLACE: Extract proper ROI
-            
-            # Debug visualization for ROI
-            if debug_level >= 1 and self.crop_offset_y > 0:
-                # TODO: Show where your ROI is located
-                pass
-            
-            # =============================================================
-            # STEP 2: EDGE DETECTION  
-            # TODO: Convert to grayscale and find edges
-            # Think: What preprocessing might help edge detection?
-            # Consider: Noise reduction before edge detection
-            # =============================================================
-            
-            # TODO: Implement grayscale conversion and edge detection
-            edges = np.zeros((roi.shape[0], roi.shape[1]), dtype=np.uint8)  # REPLACE
-            
-            # Debug visualization for edges
-            if debug_level >= 2:
-                # TODO: Show edge detection result as small inset
-                pass
-            
-            # =============================================================
-            # STEP 3: LINE DETECTION
-            # TODO: Use Hough transform to find line segments
-            # Think: What parameters work best for your track?
-            # Consider: Rho and theta values for Hough transform
-            # =============================================================
-            
-            lines = None  # REPLACE: Implement line detection
-            
-            # =============================================================
-            # STEP 4: LINE CENTER CALCULATION
-            # TODO: Process detected lines and find the center
-            # Think: How do you handle multiple line segments?
-            # Consider: Filtering lines by length and angle
-            # =============================================================
-            
-            line_center_x = self.image_center_x
-            lines_found = 0
-            
-            if lines is not None and len(lines) > 0:
-                valid_lines = []
-                
-                for line in lines:
-                    x1, y1, x2, y2 = line[0]
-                    
-                    # TODO: Calculate line properties and filter
-                    # Think: What makes a "good" line for following?
-                    # Consider: Length, angle, position requirements
-                    
-                    line_length = 0      # IMPLEMENT: Calculate line length
-                    line_angle = 0       # IMPLEMENT: Calculate line angle
-                    
-                    # TODO: Decide if this line is worth keeping
-                    if True:  # REPLACE: Add filtering conditions
-                        valid_lines.append(line)
-                
-                if valid_lines:
-                    x_coords = []
-                    
-                    for line in valid_lines:
-                        x1, y1, x2, y2 = line[0]
-                        
-                        # TODO: Find center point of each line segment
-                        center_x = 0  # IMPLEMENT: Calculate center
-                        x_coords.append(center_x)
-                        
-                        # Debug visualization for detected lines
-                        if debug_level >= 3:
-                            # TODO: Draw the detected line segments
-                            # Remember: Adjust coordinates for ROI offset
-                            pass
-                    
-                    if x_coords:
-                        # TODO: Combine multiple line centers into single position
-                        line_center_x = 0  # IMPLEMENT: Calculate overall center
-                        lines_found = len(valid_lines)
-            
-            # =============================================================
-            # STEP 5: PID CONTROL
-            # TODO: Convert position error to steering angle
-            # Think: How does error relate to required steering?
-            # Consider: Integral windup and derivative kick
-            # =============================================================
-            
-            error = line_center_x - self.image_center_x
-            current_time = time.time()
-            dt = current_time - self.last_time
-            
-            if dt > 0:
-                # TODO: Implement PID calculation
-                # Think: What does each term contribute to control?
-                # Consider: How to prevent integral windup
-                
-                P_term = 0  # IMPLEMENT: Proportional term
-                I_term = 0  # IMPLEMENT: Integral term  
-                D_term = 0  # IMPLEMENT: Derivative term
-                
-                pid_output = 0  # IMPLEMENT: Combine terms
-                
-                steering_angle = np.clip(pid_output, -self.max_steering_angle, self.max_steering_angle)
-                
-                # Update state for next iteration
-                self.last_error = error
-                self.last_time = current_time
-                
-                # =============================================================
-                # DEBUG VISUALIZATION
-                # TODO: Add helpful visual overlays
-                # Think: What information helps debug the algorithm?
-                # Consider: Error visualization, center points, detected lines
-                # =============================================================
-                
-                if debug_level >= 1:
-                    # TODO: Implement debug visualizations
-                    # Ideas: image center line, detected line center, error line
-                    pass
-                
-                # Update debug data
-                processing_time = (time.time() - start_time) * 1000
-                self.debug_data.update({
-                    'lines_detected': lines_found,
-                    'processing_time_ms': processing_time
-                })
-                
-                return float(steering_angle)
-            
+        if frame is None:
             return 0.0
+        
+        # Step 1: Create ROI (Region of Interest)
+        roi_frame, roi_points = self._create_roi(frame)
+        
+        # Step 2: Process image to detect lines
+        line_center = self._detect_line_center(roi_frame)
+        
+        # Step 3: Calculate error (image center - line center)
+        error_px = self._calculate_error(roi_frame, line_center)
+        
+        # Step 4: Apply PID control
+        steering_angle = self._apply_pid_control(error_px)
+        
+        # Step 5: Update debug information
+        self._update_debug_data(frame, roi_points, line_center, error_px, steering_angle, debug_level)
+        
+        return steering_angle
+    
+    def _create_roi(self, frame):
+        """
+        Create Region of Interest to focus on road area
+        
+        TODO SECTION FOR STUDENTS:
+        The ROI parameters at the top of this file control which part of the 
+        image we focus on. Experiment with:
+        - roi_top_offset: How much of the top to crop out (sky, horizon)
+        - roi_bottom_offset: How much of the bottom to include  
+        - roi_left_offset, roi_right_offset: Horizontal cropping
+        
+        Good values depend on camera mounting angle and field of view.
+        """
+        height, width = frame.shape[:2]
+        
+        # Calculate ROI bounds based on student parameters
+        top_y = int(height * self.roi_top_offset)
+        bottom_y = int(height * self.roi_bottom_offset)
+        left_x = int(width * self.roi_left_offset)
+        right_x = int(width * self.roi_right_offset)
+        
+        # Create ROI points for visualization
+        roi_points = [
+            (left_x, top_y),      # Top-left
+            (right_x, top_y),     # Top-right  
+            (right_x, bottom_y),  # Bottom-right
+            (left_x, bottom_y)    # Bottom-left
+        ]
+        
+        # Extract ROI from frame
+        roi_frame = frame[top_y:bottom_y, left_x:right_x]
+        
+        return roi_frame, roi_points
+    
+    def _detect_line_center(self, roi_frame):
+        """
+        Detect the center of the line in the ROI
+        
+        TODO SECTION FOR STUDENTS:
+        This is where you implement line detection using computer vision.
+        The basic pipeline is:
+        1. Convert to grayscale
+        2. Apply blur to reduce noise  
+        3. Use Canny edge detection
+        4. Find contours or use Hough lines
+        5. Calculate the center point of detected lines
+        
+        Sample code snippets are provided below - modify and use them!
+        """
+        
+        if roi_frame.size == 0:
+            return None
+            
+        try:
+            # TODO STUDENT IMPLEMENTATION:
+            # Uncomment and modify the code below for line detection
+            
+            # SAMPLE CODE - BASIC APPROACH:
+            # Convert to grayscale
+            gray = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
+            
+            # Apply Gaussian blur to reduce noise
+            blurred = cv2.GaussianBlur(gray, (self.blur_kernel_size, self.blur_kernel_size), 0)
+            
+            # Apply Canny edge detection
+            edges = cv2.Canny(blurred, self.canny_low_threshold, self.canny_high_threshold)
+            
+            # TODO: Implement line detection here
+            # APPROACH 1 - Contour method:
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            if contours:
+                # Find the largest contour (assuming it's the line)
+                largest_contour = max(contours, key=cv2.contourArea)
+                
+                # Calculate centroid
+                M = cv2.moments(largest_contour)
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    return (cx, cy)
+            
+            # APPROACH 2 - Simple center-of-mass method:
+            # Find all white pixels and calculate their center
+            # white_pixels = np.where(edges > 0)
+            # if len(white_pixels[0]) > 0:
+            #     center_y = int(np.mean(white_pixels[0]))
+            #     center_x = int(np.mean(white_pixels[1]))
+            #     return (center_x, center_y)
+            
+            # APPROACH 3 - Hough Lines (more advanced):
+            # lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, 
+            #                        minLineLength=30, maxLineGap=5)
+            # if lines is not None:
+            #     # Process lines and find center
+            #     pass
+            
+            return None  # No line detected
             
         except Exception as e:
-            print(f"Line following error: {e}")
-            self.debug_data.update({
-                'lines_detected': 0,
-                'processing_time_ms': 0.0
-            })
+            print(f"Line detection error: {e}")
+            return None
+    
+    def _calculate_error(self, roi_frame, line_center):
+        """
+        Calculate error as difference between image center and line center
+        
+        This is the key insight for line following:
+        - If line is to the left of center: negative error → steer right
+        - If line is to the right of center: positive error → steer left
+        - If line is centered: zero error → go straight
+        
+        TODO SECTION FOR STUDENTS:
+        The basic calculation is provided, but you might want to experiment with:
+        - Using only horizontal error (x-direction) vs. both x and y
+        - Weighting the error differently
+        - Using multiple points along the line
+        """
+        
+        if roi_frame.size == 0:
             return 0.0
+            
+        # Calculate image center
+        height, width = roi_frame.shape[:2]
+        image_center_x = width / 2
+        image_center_y = height / 2
+        
+        # Store for debug visualization
+        self.current_debug_data['image_center'] = (int(image_center_x), int(image_center_y))
+        
+        if line_center is None:
+            # No line detected - return moderate error to encourage searching
+            return 0.0
+        
+        # Store line center for debug
+        self.current_debug_data['line_center'] = line_center
+        
+        # TODO: Calculate error
+        # Basic approach: horizontal difference
+        line_center_x = line_center[0]
+        error_px = image_center_x - line_center_x
+        
+        # Optional: Include vertical component
+        # line_center_y = line_center[1] 
+        # vertical_error = image_center_y - line_center_y
+        # error_px = math.sqrt(error_px**2 + vertical_error**2)
+        
+        return error_px
+    
+    def _apply_pid_control(self, error_px):
+        """
+        Apply PID control to convert error to steering angle
+        
+        PID Control combines:
+        - P (Proportional): React to current error
+        - I (Integral): React to accumulated past errors  
+        - D (Derivative): React to rate of error change
+        
+        TODO SECTION FOR STUDENTS:
+        The PID implementation is provided, but you need to tune the gains:
+        - Kp: Start with 0.5-1.0, increase for stronger response
+        - Ki: Start with 0.0-0.2, helps eliminate steady-state error
+        - Kd: Start with 0.0-0.5, helps reduce oscillations
+        """
+        
+        current_time = time.time()
+        dt = current_time - self.last_time
+        
+        if dt <= 0:
+            dt = 0.1  # Prevent division by zero
+        
+        # Proportional term
+        proportional = self.Kp * error_px
+        
+        # Integral term (accumulated error over time)
+        self.integral_error += error_px * dt
+        integral = self.Ki * self.integral_error
+        
+        # Derivative term (rate of error change)
+        derivative_error = (error_px - self.previous_error) / dt
+        derivative = self.Kd * derivative_error
+        
+        # Combine PID terms
+        steering_angle = proportional + integral + derivative
+        
+        # Limit output to reasonable steering range
+        steering_angle = np.clip(steering_angle, -45, 45)
+        
+        # Update state for next iteration
+        self.previous_error = error_px
+        self.last_time = current_time
+        
+        return steering_angle
+    
+    def _update_debug_data(self, original_frame, roi_points, line_center, error_px, steering_angle, debug_level):
+        """
+        Update debug visualization and data
+        This function creates the visual overlay you see in the web interface
+        """
+        
+        # Update debug data for sidebar
+        self.current_debug_data.update({
+            'error_px': round(error_px, 1),
+            'steering_angle': round(steering_angle, 1),
+            'lines_detected': 1 if line_center else 0,
+            'roi_points': roi_points
+        })
+        
+        # Create debug frame for visualization
+        if debug_level > 0:
+            self.debug_frame = self._create_debug_visualization(
+                original_frame, roi_points, line_center, error_px, steering_angle, debug_level
+            )
+        else:
+            self.debug_frame = original_frame.copy()
+    
+    def _create_debug_visualization(self, frame, roi_points, line_center, error_px, steering_angle, debug_level):
+        """Create debug visualization overlay"""
+        
+        debug_frame = frame.copy()
+        height, width = frame.shape[:2]
+        
+        # Level 1: Basic ROI and status
+        if debug_level >= 1:
+            # Draw ROI rectangle
+            if len(roi_points) == 4:
+                roi_array = np.array(roi_points, np.int32)
+                cv2.polylines(debug_frame, [roi_array], True, (0, 255, 255), 2)
+                cv2.putText(debug_frame, "ROI", roi_points[0], cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            
+            # Status text
+            status = f"Error: {error_px:.1f}px | Steer: {steering_angle:.1f}°"
+            cv2.putText(debug_frame, status, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        
+        # Level 2: Line center and image center
+        if debug_level >= 2 and len(roi_points) == 4:
+            roi_offset = roi_points[0]  # Top-left corner offset
+            
+            # Draw image center (in ROI coordinates)
+            if self.current_debug_data['image_center']:
+                img_center = self.current_debug_data['image_center']
+                center_global = (img_center[0] + roi_offset[0], img_center[1] + roi_offset[1])
+                cv2.circle(debug_frame, center_global, 8, (255, 0, 0), -1)
+                cv2.putText(debug_frame, "IMG CENTER", (center_global[0]-50, center_global[1]-15), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            
+            # Draw detected line center
+            if line_center:
+                line_global = (line_center[0] + roi_offset[0], line_center[1] + roi_offset[1])
+                cv2.circle(debug_frame, line_global, 8, (0, 255, 0), -1)
+                cv2.putText(debug_frame, "LINE CENTER", (line_global[0]-50, line_global[1]+25), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                
+                # Draw error line
+                if self.current_debug_data['image_center']:
+                    cv2.line(debug_frame, center_global, line_global, (255, 255, 0), 2)
+        
+        # Level 3: PID component breakdown
+        if debug_level >= 3:
+            p_term = self.Kp * error_px
+            i_term = self.Ki * self.integral_error
+            d_term = self.Kd * (error_px - self.previous_error) / 0.1
+            
+            pid_text = [
+                f"P: {p_term:.1f}° (Kp={self.Kp})",
+                f"I: {i_term:.1f}° (Ki={self.Ki})", 
+                f"D: {d_term:.1f}° (Kd={self.Kd})",
+                f"Total: {steering_angle:.1f}°"
+            ]
+            
+            for i, text in enumerate(pid_text):
+                cv2.putText(debug_frame, text, (10, 60 + i*25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
+        
+        # Level 4: Parameter display
+        if debug_level >= 4:
+            param_text = [
+                f"ROI: T{self.roi_top_offset:.1f} B{self.roi_bottom_offset:.1f}",
+                f"Blur: {self.blur_kernel_size}",
+                f"Canny: {self.canny_low_threshold}-{self.canny_high_threshold}"
+            ]
+            
+            for i, text in enumerate(param_text):
+                cv2.putText(debug_frame, text, (width-200, 30 + i*25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
+        
+        return debug_frame
     
     def get_debug_frame(self):
-        """Return the debug visualization frame"""
-        return self.debug_frame if self.debug_frame is not None else None
+        """Return the current debug frame for display"""
+        return self.debug_frame
     
-    def get_debug_data(self):
-        """Return debug data for sidebar"""
-        return self.debug_data.copy()
+    def update_parameters(self, **kwargs):
+        """Update parameters during runtime (called from web interface)"""
+        if 'kp' in kwargs and kwargs['kp'] is not None:
+            self.Kp = kwargs['kp']
+        if 'ki' in kwargs and kwargs['ki'] is not None:
+            self.Ki = kwargs['ki']  
+        if 'kd' in kwargs and kwargs['kd'] is not None:
+            self.Kd = kwargs['kd']
+        
+        print(f"🔧 PID parameters updated: Kp={self.Kp}, Ki={self.Ki}, Kd={self.Kd}")
+
+# =============================================================================
+# STUDENT TESTING SECTION
+# =============================================================================
+
+def test_line_follower():
+    """
+    Simple test function for students to validate their implementation
+    Run this with: python3 line_follower.py
+    """
     
-    def reset_integral(self):
-        """Reset integral term"""
-        self.integral = 0.0
-        print("🔄 PID integral term reset")
+    print("🧪 Testing Line Follower Implementation")
+    print("="*50)
     
-    def update_parameters(self, kp=None, ki=None, kd=None, canny_low=None, canny_high=None):
-        """Update parameters during runtime"""
-        if kp is not None:
-            self.Kp = kp
-            print(f"✅ Kp updated to {kp}")
-        if ki is not None:
-            self.Ki = ki
-            print(f"✅ Ki updated to {ki}")
-        if kd is not None:
-            self.Kd = kd
-            print(f"✅ Kd updated to {kd}")
-        if canny_low is not None:
-            self.canny_low = canny_low
-            print(f"✅ Canny low threshold updated to {canny_low}")
-        if canny_high is not None:
-            self.canny_high = canny_high
-            print(f"✅ Canny high threshold updated to {canny_high}")
+    # Create test instance
+    lf = LineFollower()
+    
+    # Create a simple test image with a white line
+    test_image = np.zeros((240, 320, 3), dtype=np.uint8)
+    
+    # Draw a white line (slightly off-center to create error)
+    cv2.line(test_image, (140, 50), (140, 200), (255, 255, 255), 10)
+    
+    print("📸 Processing test image...")
+    steering_angle = lf.compute_steering_angle(test_image, debug_level=2)
+    
+    print(f"✅ Steering angle computed: {steering_angle:.1f}°")
+    print(f"📊 Debug data: {lf.current_debug_data}")
+    
+    # Test different scenarios
+    scenarios = [
+        ("Line left of center", (100, 120)),
+        ("Line right of center", (220, 120)), 
+        ("Line centered", (160, 120))
+    ]
+    
+    for desc, line_pos in scenarios:
+        test_img = np.zeros((240, 320, 3), dtype=np.uint8)
+        cv2.line(test_img, (line_pos[0], 50), (line_pos[0], 200), (255, 255, 255), 10)
+        
+        angle = lf.compute_steering_angle(test_img, debug_level=0)
+        print(f"📋 {desc}: {angle:.1f}°")
+    
+    print("\n🎯 TODO for students:")
+    print("1. Tune ROI parameters in __init__()")
+    print("2. Implement line detection in _detect_line_center()")
+    print("3. Tune PID parameters for smooth control")
+    print("4. Test with real camera feed via web interface")
+
+if __name__ == "__main__":
+    test_line_follower()

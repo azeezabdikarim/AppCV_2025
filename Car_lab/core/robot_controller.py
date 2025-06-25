@@ -109,7 +109,7 @@ class RobotController:
                 if module_name in sys.modules:
                     del sys.modules[module_name]
                 
-                from week1_line_following.line_follower import LineFollower
+                from week1_line_following.line_follower_easy_debugging import LineFollower
                 self.line_follower = LineFollower()
                 self.feature_status['line_following'] = 'Active'
                 print("✅ Line following enabled and loaded")
