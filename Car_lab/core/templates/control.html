@@ -3,560 +3,637 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiCar-X Control Interface</title>
+    <title>PiCar-X Multi-Week Debug Control</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            color: #333;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            overflow-x: hidden;
         }
-        
+
         .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 20px;
-        }
-        
-        .main-content {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .sidebar {
             display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .control-panel {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        h1, h2, h3 {
-            color: #2c3e50;
-            margin-top: 0;
-        }
-        
-        .video-container {
-            position: relative;
-            width: 100%;
-            max-width: 800px;
+            height: 100vh;
+            max-width: 1400px;
             margin: 0 auto;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
         }
-        
-        #videoFeed {
-            width: 100%;
-            height: auto;
-            display: block;
+
+        /* Tab Navigation */
+        .tab-navigation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: #2d2d2d;
+            border-bottom: 2px solid #4a4a4a;
+            padding: 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-        
-        /* Camera Controls */
-        .camera-controls {
-            background: #e8f4fd;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid #2196f3;
-        }
-        
-        .camera-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 10px;
-        }
-        
-        .camera-preset {
-            padding: 10px;
-            background: #2196f3;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.3s;
-        }
-        
-        .camera-preset:hover {
-            background: #1976d2;
-        }
-        
-        .camera-preset.success {
-            background: #4caf50;
-        }
-        
-        .camera-preset.error {
-            background: #f44336;
-        }
-        
-        .angle-control {
+
+        .tab-container {
             display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 10px 0;
+            max-width: 1400px;
+            margin: 0 auto;
         }
-        
-        .angle-control label {
-            min-width: 80px;
-            font-weight: bold;
-        }
-        
-        .angle-slider {
+
+        .tab {
             flex: 1;
-            height: 6px;
-            border-radius: 3px;
-            background: #ddd;
-            outline: none;
-        }
-        
-        .angle-value {
-            min-width: 40px;
-            text-align: center;
-            font-weight: bold;
-            color: #2196f3;
-        }
-        
-        /* Debug Sidebar */
-        .debug-sidebar {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            border-left: 4px solid #28a745;
-        }
-        
-        .debug-item {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-            padding: 8px 0;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .debug-label {
-            font-weight: bold;
-            color: #495057;
-        }
-        
-        .debug-value {
-            color: #28a745;
-            font-family: monospace;
-            font-weight: bold;
-        }
-        
-        /* Robot Controls */
-        .controls-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 20px 0;
-        }
-        
-        .control-btn {
             padding: 15px 20px;
+            background-color: #3a3a3a;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
+            color: #cccccc;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-transform: uppercase;
+            font-size: 14px;
+            font-weight: 600;
+            border-right: 1px solid #4a4a4a;
+            position: relative;
         }
-        
-        .control-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+
+        .tab:last-child {
+            border-right: none;
         }
-        
-        .forward { background: #3498db; color: white; }
-        .backward { background: #95a5a6; color: white; }
-        .left { background: #f39c12; color: white; }
-        .right { background: #f39c12; color: white; }
-        .stop { background: #e74c3c; color: white; }
-        
-        .autonomous-controls {
-            margin: 20px 0;
+
+        .tab:hover {
+            background-color: #4a4a4a;
+            color: #ffffff;
         }
-        
-        .autonomous-btn {
-            width: 100%;
-            padding: 15px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
+
+        .tab.active {
+            background-color: #007acc;
+            color: #ffffff;
         }
-        
-        .start-autonomous {
-            background: #27ae60;
-            color: white;
+
+        .tab.disabled {
+            background-color: #2a2a2a;
+            color: #666666;
+            cursor: not-allowed;
         }
-        
-        .stop-autonomous {
-            background: #e67e22;
-            color: white;
+
+        .tab.disabled:hover {
+            background-color: #2a2a2a;
+            color: #666666;
         }
-        
-        .autonomous-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+
+        .tab-indicator {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #00ff88;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
-        
-        /* Control Groups */
-        .control-group {
-            margin: 15px 0;
+
+        .tab.active .tab-indicator {
+            opacity: 1;
         }
-        
-        .control-group label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #495057;
-        }
-        
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .slider {
-            flex: 1;
-            -webkit-appearance: none;
-            height: 8px;
-            border-radius: 5px;
-            background: #ddd;
-            outline: none;
-        }
-        
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #007bff;
-            cursor: pointer;
-        }
-        
-        .value-display {
-            min-width: 40px;
-            text-align: center;
-            font-weight: bold;
-            color: #007bff;
-        }
-        
-        .pid-controls {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .pid-input {
+
+        /* Main Content Area */
+        .main-content {
+            flex: 3;
+            padding: 80px 20px 20px 20px;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            gap: 20px;
         }
-        
-        .pid-input label {
-            font-size: 14px;
-            margin-bottom: 5px;
+
+        /* Video Section */
+        .video-section {
+            background-color: #2d2d2d;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
-        
-        .pid-input input {
-            width: 80px;
-            padding: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+
+        .video-container {
             text-align: center;
+            margin-bottom: 15px;
         }
-        
-        .status-panel {
-            background: #f8f9fa;
+
+        .video-stream {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #4a4a4a;
             border-radius: 8px;
-            padding: 15px;
-            border-left: 4px solid #007bff;
+            background-color: #1a1a1a;
         }
-        
+
+        .video-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Control Panels */
+        .control-panel {
+            background-color: #2d2d2d;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+        }
+
+        .control-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #00ff88;
+            border-bottom: 2px solid #00ff88;
+            padding-bottom: 5px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            flex: 1;
+            padding: 80px 20px 20px 0;
+            background-color: #1a1a1a;
+            min-width: 300px;
+            max-width: 350px;
+        }
+
+        .status-panel {
+            background-color: #2d2d2d;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
         .status-item {
             display: flex;
             justify-content: space-between;
-            margin: 8px 0;
-            padding: 5px 0;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .status-label {
-            font-weight: bold;
-        }
-        
-        .status-value {
-            color: #007bff;
-        }
-        
-        .keyboard-hint {
-            background: #e3f2fd;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
+            margin-bottom: 10px;
             font-size: 14px;
-            border-left: 4px solid #2196f3;
         }
 
-        .feature-status {
-            margin-top: 10px;
+        .status-item:last-child {
+            margin-bottom: 0;
         }
 
-        .feature-item {
+        .status-label {
+            color: #cccccc;
+            font-weight: 500;
+        }
+
+        .status-value {
+            color: #00ff88;
+            font-weight: 600;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            min-width: 100px;
+        }
+
+        .btn-primary {
+            background-color: #007acc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #005a9a;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .btn:disabled {
+            background-color: #4a4a4a;
+            color: #888888;
+            cursor: not-allowed;
+        }
+
+        /* Controls Grid */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .control-item {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
-            padding: 8px 12px;
-            margin: 5px 0;
-            background: #f8f9fa;
-            border-radius: 5px;
-            border-left: 4px solid #ddd;
+            gap: 8px;
         }
 
-        .feature-item.active {
-            border-left-color: #28a745;
-            background: #d4edda;
+        .control-item label {
+            font-size: 12px;
+            color: #cccccc;
+            text-align: center;
         }
 
-        .feature-item.disabled {
-            border-left-color: #6c757d;
-            background: #f8f9fa;
+        .control-item input, .control-item select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            background-color: #3a3a3a;
+            color: #ffffff;
+            font-size: 12px;
         }
 
-        .feature-item.error {
-            border-left-color: #dc3545;
-            background: #f8d7da;
+        /* Status Indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
         }
 
-        .feature-label {
-            font-weight: bold;
-            color: #495057;
+        .status-active {
+            background-color: #28a745;
         }
 
-        .feature-value {
-            font-weight: bold;
-            font-size: 0.9em;
+        .status-inactive {
+            background-color: #dc3545;
         }
 
-        .feature-value.active {
+        .status-warning {
+            background-color: #ffc107;
+        }
+
+        /* Log Container */
+        .log-container {
+            background-color: #1a1a1a;
+            border: 1px solid #4a4a4a;
+            border-radius: 6px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            color: #cccccc;
+        }
+
+        .log-entry.success {
             color: #28a745;
         }
 
-        .feature-value.disabled {
-            color: #6c757d;
-        }
-
-        .feature-value.error {
+        .log-entry.error {
             color: #dc3545;
         }
-        
-        @media (max-width: 768px) {
+
+        .log-entry.warning {
+            color: #ffc107;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
             .container {
-                grid-template-columns: 1fr;
+                flex-direction: column;
             }
-            
+
+            .sidebar {
+                flex: none;
+                padding: 20px;
+                min-width: auto;
+                max-width: none;
+            }
+
+            .main-content {
+                padding: 80px 20px 20px 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .tab {
+                padding: 12px 10px;
+                font-size: 12px;
+            }
+
             .controls-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+                gap: 8px;
             }
-            
-            .camera-grid {
-                grid-template-columns: 1fr;
+
+            .btn {
+                padding: 10px 15px;
+                font-size: 12px;
+                min-width: 80px;
             }
+        }
+
+        /* Hidden class for tab content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
         }
     </style>
 </head>
 <body>
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+        <div class="tab-container">
+            <button class="tab active" data-mode="line_following" id="tab-line-following">
+                <span>Week 1: Line Following</span>
+                <div class="tab-indicator"></div>
+            </button>
+            <button class="tab disabled" data-mode="object_detection" id="tab-object-detection">
+                <span>Week 2: Object Detection</span>
+                <div class="tab-indicator"></div>
+            </button>
+            <button class="tab disabled" data-mode="speed_estimation" id="tab-speed-estimation">
+                <span>Week 3: Speed Estimation</span>
+                <div class="tab-indicator"></div>
+            </button>
+        </div>
+    </div>
+
     <div class="container">
+        <!-- Main Content Area -->
         <div class="main-content">
-            <h1>🚗 PiCar-X Control Interface</h1>
-            
-            <div class="video-container">
-                <img id="videoFeed" src="/video_feed" alt="Robot Camera Feed">
-            </div>
-            
-            <!-- Camera Positioning Controls -->
-            <div class="camera-controls">
-                <h3>📷 Camera Positioning</h3>
-                <div class="camera-grid">
-                    <button class="camera-preset" id="lookDownBtn" onclick="cameraLookDown()">
-                        📍 Look Down (Line Following)
-                    </button>
-                    <button class="camera-preset" id="lookForwardBtn" onclick="cameraLookForward()">
-                        👁️ Look Forward
-                    </button>
+            <!-- Video Section -->
+            <div class="video-section">
+                <div class="video-container">
+                    <img src="/video_feed" class="video-stream" alt="Robot Camera Stream" id="videoStream">
                 </div>
-                
-                <div class="angle-control">
-                    <label>Pan:</label>
-                    <input type="range" class="angle-slider" id="cameraPan" 
-                           min="-90" max="90" value="0" onchange="setCameraPan(this.value)">
-                    <span class="angle-value" id="panValue">0°</span>
-                </div>
-                
-                <div class="angle-control">
-                    <label>Tilt:</label>
-                    <input type="range" class="angle-slider" id="cameraTilt" 
-                           min="-90" max="90" value="-30" onchange="setCameraTilt(this.value)">
-                    <span class="angle-value" id="tiltValue">-30°</span>
+                <div class="video-controls">
+                    <button class="btn btn-success" onclick="startAutonomous()">Start Autonomous</button>
+                    <button class="btn btn-secondary" onclick="stopAutonomous()">Stop Autonomous</button>
+                    <button class="btn btn-danger" onclick="emergencyStop()">Emergency Stop</button>
                 </div>
             </div>
-            
-            <div class="keyboard-hint">
-                💡 <strong>Setup:</strong> Position camera using controls above, then start autonomous mode
-            </div>
-            
-            <div class="controls-grid">
-                <div></div>
-                <button class="control-btn forward" onclick="moveRobot('forward')" data-key="w">
-                    ⬆️ Forward (W)
-                </button>
-                <div></div>
-                
-                <button class="control-btn left" onclick="moveRobot('left')" data-key="a">
-                    ⬅️ Left (A)
-                </button>
-                <button class="control-btn stop" onclick="moveRobot('stop')" data-key="f">
-                    🛑 STOP (F)
-                </button>
-                <button class="control-btn right" onclick="moveRobot('right')" data-key="d">
-                    ➡️ Right (D)
-                </button>
-                
-                <div></div>
-                <button class="control-btn backward" onclick="moveRobot('backward')" data-key="s">
-                    ⬇️ Backward (S)
-                </button>
-                <div></div>
-            </div>
-            
-            <div class="autonomous-controls">
-                <h3>🤖 Autonomous Mode</h3>
-                <button class="autonomous-btn start-autonomous" onclick="startAutonomous()">
-                    🚀 Start Line Following
-                </button>
-                <button class="autonomous-btn stop-autonomous" onclick="stopAutonomous()">
-                    ⏹️ Stop Autonomous Mode
-                </button>
+
+            <!-- Control Panels (Common across all tabs) -->
+            <div class="control-panel">
+                <div class="control-section">
+                    <div class="section-title">Camera Controls</div>
+                    <div class="controls-grid">
+                        <div class="control-item">
+                            <label>Pan Angle</label>
+                            <input type="range" id="panSlider" min="-90" max="90" value="0" oninput="updateCameraPan(this.value)">
+                            <span id="panValue">0°</span>
+                        </div>
+                        <div class="control-item">
+                            <label>Tilt Angle</label>
+                            <input type="range" id="tiltSlider" min="-90" max="90" value="-30" oninput="updateCameraTilt(this.value)">
+                            <span id="tiltValue">-30°</span>
+                        </div>
+                        <div class="control-item">
+                            <button class="btn btn-primary" onclick="cameraLookDown()">Look Down</button>
+                        </div>
+                        <div class="control-item">
+                            <button class="btn btn-primary" onclick="cameraLookForward()">Look Forward</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">Manual Controls</div>
+                    <div class="controls-grid">
+                        <div style="grid-column: 2;">
+                            <button class="btn btn-secondary" onclick="moveRobot('forward')">↑ Forward</button>
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary" onclick="moveRobot('left')">← Left</button>
+                        </div>
+                        <div>
+                            <button class="btn btn-danger" onclick="moveRobot('stop')">Stop</button>
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary" onclick="moveRobot('right')">→ Right</button>
+                        </div>
+                        <div style="grid-column: 2;">
+                            <button class="btn btn-secondary" onclick="moveRobot('backward')">↓ Backward</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        
+
+        <!-- Sidebar with Tab-Specific Content -->
         <div class="sidebar">
-            <!-- Debug Information Sidebar -->
-            <div class="control-panel">
-                <h3>🔍 Line Following Debug</h3>
-                <div class="debug-sidebar" id="debugInfo">
-                    <div class="debug-item">
-                        <span class="debug-label">Mode:</span>
-                        <span class="debug-value" id="debugMode">Manual</span>
-                    </div>
-                    <div class="debug-item">
-                        <span class="debug-label">Error:</span>
-                        <span class="debug-value" id="debugError">0.0 px</span>
-                    </div>
-                    <div class="debug-item">
-                        <span class="debug-label">Steering:</span>
-                        <span class="debug-value" id="debugSteering">0.0°</span>
-                    </div>
-                    <div class="debug-item">
-                        <span class="debug-label">Lines Found:</span>
-                        <span class="debug-value" id="debugLines">0</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Debug Controls -->
-            <div class="control-panel">
-                <h3>🔧 Debug Controls</h3>
-                
-                <div class="control-group">
-                    <label for="debugLevel">Debug Level:</label>
-                    <div class="slider-container">
-                        <input type="range" id="debugLevel" class="slider" min="0" max="4" value="0" 
-                               onchange="setDebugLevel(this.value)">
-                        <span class="value-display" id="debugLevelValue">0</span>
-                    </div>
-                    <small>0=Off, 1=Basic, 2=Edges, 3=Lines, 4=Full</small>
-                </div>
-                
-                <div class="control-group">
-                    <label for="frameRate">Processing Rate (fps):</label>
-                    <div class="slider-container">
-                        <input type="range" id="frameRate" class="slider" min="1" max="15" value="10" 
-                               onchange="setFrameRate(this.value)">
-                        <span class="value-display" id="frameRateValue">10</span>
-                    </div>
-                </div>
-                
-                <!-- <div class="control-group">
-                    <label>PID Parameters:</label>
-                    <div class="pid-controls">
-                        <div class="pid-input">
-                            <label for="kp">Kp</label>
-                            <input type="number" id="kp" step="0.1" value="0.8" min="0" max="2" 
-                                   onchange="updatePIDParameters()">
-                        </div>
-                        <div class="pid-input">
-                            <label for="ki">Ki</label>
-                            <input type="number" id="ki" step="0.01" value="0.02" min="0" max="1" 
-                                   onchange="updatePIDParameters()">
-                        </div>
-                        <div class="pid-input">
-                            <label for="kd">Kd</label>
-                            <input type="number" id="kd" step="0.01" value="0.15" min="0" max="1" 
-                                   onchange="updatePIDParameters()">
-                        </div>
-                    </div>
-                </div> -->
-            </div>
-            
-            <!-- Robot Status -->
-            <div class="control-panel">
-                <h3>📊 Robot Status</h3>
+            <!-- Line Following Tab Content -->
+            <div id="line-following-content" class="tab-content active">
                 <div class="status-panel">
+                    <div class="section-title">Line Following Status</div>
                     <div class="status-item">
-                        <span class="status-label">Last Command:</span>
-                        <span class="status-value" id="lastCommand">none</span>
+                        <span class="status-label">Mode:</span>
+                        <span class="status-value" id="robotMode">Manual</span>
                     </div>
                     <div class="status-item">
-                        <span class="status-label">Robot Connected:</span>
-                        <span class="status-value" id="robotConnected">Unknown</span>
+                        <span class="status-label">Error:</span>
+                        <span class="status-value" id="errorValue">0.0 px</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Steering:</span>
+                        <span class="status-value" id="steeringValue">0.0°</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Lines Detected:</span>
+                        <span class="status-value" id="linesDetected">0</span>
                     </div>
                 </div>
-                
-                <h4 style="color: #2c3e50; margin: 15px 0 10px 0;">🔧 Features Status</h4>
-                <div class="feature-status">
-                    <div class="feature-item" id="lineFollowingFeature">
-                        <span class="feature-label">Line Following:</span>
-                        <span class="feature-value" id="lineFollowingStatus">Loading...</span>
+
+                <div class="status-panel">
+                    <div class="section-title">Debug Controls</div>
+                    <div class="control-item">
+                        <label>Debug Level (0-4)</label>
+                        <input type="range" id="debugLevel" min="0" max="4" value="0" oninput="updateDebugLevel(this.value)">
+                        <span id="debugLevelValue">0</span>
                     </div>
-                    <div class="feature-item" id="signDetectionFeature">
-                        <span class="feature-label">Sign Detection:</span>
-                        <span class="feature-value" id="signDetectionStatus">Loading...</span>
+                    <div class="control-item">
+                        <label>Frame Rate</label>
+                        <input type="range" id="frameRate" min="1" max="15" value="10" oninput="updateFrameRate(this.value)">
+                        <span id="frameRateValue">10 fps</span>
                     </div>
-                    <div class="feature-item" id="speedEstimationFeature">
-                        <span class="feature-label">Speed Estimation:</span>
-                        <span class="feature-value" id="speedEstimationStatus">Loading...</span>
+                </div>
+
+                <div class="status-panel">
+                    <div class="section-title">PID Parameters</div>
+                    <div class="control-item">
+                        <label>Kp (Proportional)</label>
+                        <input type="number" id="pidKp" step="0.1" value="0.8" onchange="updatePidParameters()">
                     </div>
+                    <div class="control-item">
+                        <label>Ki (Integral)</label>
+                        <input type="number" id="pidKi" step="0.01" value="0.1" onchange="updatePidParameters()">
+                    </div>
+                    <div class="control-item">
+                        <label>Kd (Derivative)</label>
+                        <input type="number" id="pidKd" step="0.1" value="0.3" onchange="updatePidParameters()">
+                    </div>
+                    <button class="btn btn-primary" onclick="updatePidParameters()">Update PID</button>
+                </div>
+            </div>
+
+            <!-- Object Detection Tab Content -->
+            <div id="object-detection-content" class="tab-content">
+                <div class="status-panel">
+                    <div class="section-title">Detection Status</div>
+                    <div class="status-item">
+                        <span class="status-label">Stop Status:</span>
+                        <span class="status-value" id="stopStatus">ACTIVE</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Detections:</span>
+                        <span class="status-value" id="detectionsCount">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Detection FPS:</span>
+                        <span class="status-value" id="detectionFps">0.0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Depth FPS:</span>
+                        <span class="status-value" id="depthFps">0.0</span>
+                    </div>
+                </div>
+
+                <div class="status-panel">
+                    <div class="section-title">Performance Metrics</div>
+                    <div class="status-item">
+                        <span class="status-label">Detection Time:</span>
+                        <span class="status-value" id="detectionTime">0 ms</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Depth Time:</span>
+                        <span class="status-value" id="depthTime">0 ms</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Last Detection:</span>
+                        <span class="status-value" id="lastDetectionAge">0.0s ago</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Last Depth:</span>
+                        <span class="status-value" id="lastDepthAge">0.0s ago</span>
+                    </div>
+                </div>
+
+                <div class="status-panel">
+                    <div class="section-title">Detected Objects</div>
+                    <div id="detectedObjectsList" style="min-height: 100px; color: #cccccc; font-size: 12px;">
+                        No objects detected
+                    </div>
+                </div>
+            </div>
+
+            <!-- Speed Estimation Tab Content -->
+            <div id="speed-estimation-content" class="tab-content">
+                <div class="status-panel">
+                    <div class="section-title">Speed Status</div>
+                    <div class="status-item">
+                        <span class="status-label">Current Speed:</span>
+                        <span class="status-value" id="currentSpeed">0.0 units/s</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Calibration:</span>
+                        <span class="status-value" id="calibrationStatus">Unknown</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Flow Magnitude:</span>
+                        <span class="status-value" id="flowMagnitude">0.0</span>
+                    </div>
+                </div>
+
+                <div class="status-panel">
+                    <div class="section-title">Optical Flow Settings</div>
+                    <div class="control-item">
+                        <label>Max Features</label>
+                        <input type="number" id="maxFeatures" value="100" min="10" max="500">
+                    </div>
+                    <div class="control-item">
+                        <label>Quality Level</label>
+                        <input type="number" id="qualityLevel" step="0.01" value="0.3" min="0.01" max="1.0">
+                    </div>
+                    <div class="control-item">
+                        <label>Min Distance</label>
+                        <input type="number" id="minDistance" value="7" min="1" max="50">
+                    </div>
+                </div>
+
+                <div class="status-panel">
+                    <div class="section-title">Speed Calibration</div>
+                    <button class="btn btn-primary" onclick="startSpeedCalibration()">Start Calibration</button>
+                    <button class="btn btn-secondary" onclick="resetSpeedCalibration()">Reset</button>
+                    <div style="margin-top: 10px; font-size: 12px; color: #cccccc;">
+                        Move robot at known speed to calibrate
+                    </div>
+                </div>
+            </div>
+
+            <!-- Common Status Panel -->
+            <div class="status-panel">
+                <div class="section-title">System Status</div>
+                <div class="status-item">
+                    <span class="status-label">Robot Connected:</span>
+                    <span class="status-value" id="robotConnected">
+                        <span class="status-indicator status-inactive"></span>Unknown
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Commands Sent:</span>
+                    <span class="status-value" id="commandCount">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Last Command:</span>
+                    <span class="status-value" id="lastCommand">none</span>
+                </div>
+            </div>
+
+            <!-- Log Panel -->
+            <div class="status-panel">
+                <div class="section-title">Activity Log</div>
+                <div class="log-container" id="logContainer">
+                    <div class="log-entry">System initialized</div>
                 </div>
             </div>
         </div>
@@ -564,358 +641,377 @@
 
     <script>
         // Global state
-        let isAutonomous = false;
+        let currentDebugMode = 'line_following';
+        let autonomousMode = false;
         
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            // Add keyboard controls
+            document.addEventListener('keydown', handleKeyPress);
+            
+            // Start status updates
             updateStatus();
-            setupKeyboardControls();
+            setInterval(updateStatus, 1000);
             
-            // Update status and debug data regularly
-            setInterval(updateStatus, 2000);
-            setInterval(updateDebugData, 500);
+            // Initialize tab event listeners
+            initializeTabs();
+            
+            // Load initial feature status
+            updateFeatureStatus();
         });
-        
-        // =================================================================
-        // CAMERA CONTROL FUNCTIONS (FIXED - Using Query Parameters)
-        // =================================================================
-        
-        function setCameraPan(angle) {
-            document.getElementById('panValue').textContent = angle + '°';
+
+        // Tab Management
+        function initializeTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    if (!this.classList.contains('disabled')) {
+                        switchTab(this.dataset.mode);
+                    }
+                });
+            });
+        }
+
+        function switchTab(mode) {
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(`tab-${mode.replace('_', '-')}`).classList.add('active');
             
-            fetch(`/set_camera_pan?angle=${angle}`)
+            // Update active content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${mode.replace('_', '-')}-content`).classList.add('active');
+            
+            // Set debug mode on backend
+            setDebugMode(mode);
+            currentDebugMode = mode;
+            
+            addLogEntry(`Switched to ${mode.replace('_', ' ')} mode`, 'success');
+        }
+
+        function setDebugMode(mode) {
+            fetch(`/set_debug_mode?mode=${mode}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        console.log('Camera pan success:', data.message);
+                        console.log(`Debug mode set to: ${data.debug_mode}`);
                     } else {
-                        console.error('Camera pan failed:', data.message);
-                        // Reset slider to previous position on failure
-                        // Could implement this if needed
+                        addLogEntry(`Failed to set debug mode: ${data.message}`, 'error');
                     }
                 })
                 .catch(error => {
-                    console.error('Camera pan error:', error);
+                    console.error('Error setting debug mode:', error);
+                    addLogEntry('Error setting debug mode', 'error');
                 });
         }
-        
-        function setCameraTilt(angle) {
-            document.getElementById('tiltValue').textContent = angle + '°';
-            
-            fetch(`/set_camera_tilt?angle=${angle}`)
+
+        // Feature Status Updates
+        function updateFeatureStatus() {
+            fetch('/autonomous_status')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success) {
-                        console.log('Camera tilt success:', data.message);
-                    } else {
-                        console.error('Camera tilt failed:', data.message);
+                    if (data.features) {
+                        // Update tab availability
+                        updateTabAvailability('line_following', data.features.line_following);
+                        updateTabAvailability('object_detection', data.features.sign_detection);
+                        updateTabAvailability('speed_estimation', data.features.speed_estimation);
                     }
                 })
-                .catch(error => {
-                    console.error('Camera tilt error:', error);
-                });
+                .catch(error => console.error('Error fetching feature status:', error));
         }
-        
-        function cameraLookDown() {
-            const btn = document.getElementById('lookDownBtn');
-            btn.classList.add('success');
-            
-            fetch('/camera_look_down')
+
+        function updateTabAvailability(mode, status) {
+            const tab = document.getElementById(`tab-${mode.replace('_', '-')}`);
+            if (status === 'Active') {
+                tab.classList.remove('disabled');
+            } else {
+                tab.classList.add('disabled');
+            }
+        }
+
+        // Status Updates
+        function updateStatus() {
+            fetch('/status')
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success) {
-                        document.getElementById('cameraPan').value = 0;
-                        document.getElementById('cameraTilt').value = -30;
-                        document.getElementById('panValue').textContent = '0°';
-                        document.getElementById('tiltValue').textContent = '-30°';
-                        console.log('Camera look down success');
-                    } else {
-                        btn.classList.remove('success');
-                        btn.classList.add('error');
-                        console.error('Camera look down failed:', data.message);
-                    }
-                    setTimeout(() => {
-                        btn.classList.remove('success', 'error');
-                    }, 1000);
+                    // Update common status
+                    document.getElementById('robotConnected').innerHTML = 
+                        `<span class="status-indicator ${data.robot_connected ? 'status-active' : 'status-inactive'}"></span>${data.robot_connected ? 'Connected' : 'Disconnected'}`;
+                    document.getElementById('commandCount').textContent = data.command_count || 0;
+                    document.getElementById('lastCommand').textContent = data.last_command || 'none';
+                    
+                    autonomousMode = data.autonomous_mode || false;
                 })
-                .catch(error => {
-                    btn.classList.remove('success');
-                    btn.classList.add('error');
-                    console.error('Camera look down error:', error);
-                    setTimeout(() => {
-                        btn.classList.remove('error');
-                    }, 1000);
-                });
-        }
-        
-        function cameraLookForward() {
-            const btn = document.getElementById('lookForwardBtn');
-            btn.classList.add('success');
-            
-            fetch('/camera_look_forward')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('cameraPan').value = 0;
-                        document.getElementById('cameraTilt').value = 0;
-                        document.getElementById('panValue').textContent = '0°';
-                        document.getElementById('tiltValue').textContent = '0°';
-                        console.log('Camera look forward success');
-                    } else {
-                        btn.classList.remove('success');
-                        btn.classList.add('error');
-                        console.error('Camera look forward failed:', data.message);
-                    }
-                    setTimeout(() => {
-                        btn.classList.remove('success', 'error');
-                    }, 1000);
-                })
-                .catch(error => {
-                    btn.classList.remove('success');
-                    btn.classList.add('error');
-                    console.error('Camera look forward error:', error);
-                    setTimeout(() => {
-                        btn.classList.remove('error');
-                    }, 1000);
-                });
-        }
-        
-        // =================================================================
-        // DEBUG DATA UPDATES
-        // =================================================================
-        
-        function updateDebugData() {
+                .catch(error => console.error('Error fetching status:', error));
+
+            // Update debug data based on current mode
             fetch('/debug_data')
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('debugMode').textContent = data.mode;
-                    document.getElementById('debugError').textContent = data.error_px.toFixed(1) + ' px';
-                    document.getElementById('debugSteering').textContent = data.steering_angle.toFixed(1) + '°';
-                    document.getElementById('debugLines').textContent = data.lines_detected;
+                    if (currentDebugMode === 'line_following') {
+                        updateLineFollowingStatus(data);
+                    } else if (currentDebugMode === 'object_detection') {
+                        updateObjectDetectionStatus(data);
+                    } else if (currentDebugMode === 'speed_estimation') {
+                        updateSpeedEstimationStatus(data);
+                    }
                 })
-                .catch(error => {
-                    console.log('Debug data update failed:', error);
-                });
-        }
-        
-        // =================================================================
-        // MOVEMENT AND AUTONOMOUS FUNCTIONS
-        // =================================================================
-        
-        function moveRobot(direction) {
-            if (isAutonomous) {
-                console.log('Manual control disabled during autonomous mode');
-                return;
+                .catch(error => console.error('Error fetching debug data:', error));
+
+            // Update performance data for Week 2
+            if (currentDebugMode === 'object_detection') {
+                fetch('/get_week2_performance')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('detectionFps').textContent = data.detection_fps ? data.detection_fps.toFixed(1) : '0.0';
+                        document.getElementById('depthFps').textContent = data.depth_fps ? data.depth_fps.toFixed(1) : '0.0';
+                        document.getElementById('lastDetectionAge').textContent = data.last_detection_age ? data.last_detection_age.toFixed(1) + 's ago' : '0.0s ago';
+                        document.getElementById('lastDepthAge').textContent = data.last_depth_age ? data.last_depth_age.toFixed(1) + 's ago' : '0.0s ago';
+                    })
+                    .catch(error => console.error('Error fetching Week 2 performance:', error));
             }
-            
-            fetch(`/move/${direction}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log(`${direction}: ${data.message}`);
-                })
-                .catch(error => {
-                    console.log(`Movement error: ${error.message}`);
-                });
         }
-        
+
+        function updateLineFollowingStatus(data) {
+            document.getElementById('robotMode').textContent = data.mode || 'Manual';
+            document.getElementById('errorValue').textContent = (data.error_px || 0).toFixed(1) + ' px';
+            document.getElementById('steeringValue').textContent = (data.steering_angle || 0).toFixed(1) + '°';
+            document.getElementById('linesDetected').textContent = data.lines_detected || 0;
+        }
+
+        function updateObjectDetectionStatus(data) {
+            document.getElementById('stopStatus').textContent = data.stop_status || 'ACTIVE';
+            document.getElementById('detectionsCount').textContent = data.detections_count || 0;
+            document.getElementById('detectionTime').textContent = (data.detection_inference_ms || 0).toFixed(0) + ' ms';
+            document.getElementById('depthTime').textContent = (data.depth_inference_ms || 0).toFixed(0) + ' ms';
+            
+            // Update detected objects list (placeholder for now)
+            const objectsList = document.getElementById('detectedObjectsList');
+            if (data.detections_count > 0) {
+                objectsList.innerHTML = `${data.detections_count} objects detected<br><small>Details will show when object detection is implemented</small>`;
+            } else {
+                objectsList.innerHTML = 'No objects detected';
+            }
+        }
+
+        function updateSpeedEstimationStatus(data) {
+            document.getElementById('currentSpeed').textContent = (data.current_speed || 0).toFixed(1) + ' units/s';
+            document.getElementById('calibrationStatus').textContent = 'Not Implemented';
+            document.getElementById('flowMagnitude').textContent = '0.0';
+        }
+
+        // Autonomous Controls
         function startAutonomous() {
             fetch('/start_autonomous')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        isAutonomous = true;
-                        updateAutonomousButtons();
-                        console.log('Autonomous mode started');
+                        addLogEntry('Autonomous mode started', 'success');
                     } else {
-                        console.log(`Failed to start autonomous: ${data.message}`);
+                        addLogEntry(`Failed to start autonomous: ${data.message}`, 'error');
                     }
                 })
                 .catch(error => {
-                    console.log(`Autonomous start error: ${error.message}`);
+                    addLogEntry('Error starting autonomous mode', 'error');
                 });
         }
-        
+
         function stopAutonomous() {
             fetch('/stop_autonomous')
                 .then(response => response.json())
                 .then(data => {
-                    isAutonomous = false;
-                    updateAutonomousButtons();
-                    console.log('Autonomous mode stopped');
-                })
-                .catch(error => {
-                    console.log(`Autonomous stop error: ${error.message}`);
-                });
-        }
-        
-        function updateAutonomousButtons() {
-            const startBtn = document.querySelector('.start-autonomous');
-            const stopBtn = document.querySelector('.stop-autonomous');
-            
-            if (isAutonomous) {
-                startBtn.style.opacity = '0.5';
-                startBtn.style.cursor = 'not-allowed';
-                stopBtn.style.opacity = '1';
-                stopBtn.style.cursor = 'pointer';
-            } else {
-                startBtn.style.opacity = '1';
-                startBtn.style.cursor = 'pointer';
-                stopBtn.style.opacity = '0.5';
-                stopBtn.style.cursor = 'not-allowed';
-            }
-        }
-        
-        // =================================================================
-        // DEBUG CONTROLS (FIXED - Using Query Parameters)
-        // =================================================================
-        
-        function setDebugLevel(level) {
-            document.getElementById('debugLevelValue').textContent = level;
-            
-            fetch(`/set_debug_level?level=${level}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log(`Debug level set to ${level}`);
-                })
-                .catch(error => {
-                    console.error('Debug level error:', error);
-                });
-        }
-        
-        function setFrameRate(fps) {
-            document.getElementById('frameRateValue').textContent = fps;
-            
-            fetch(`/set_frame_rate?fps=${fps}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log(`Frame rate set to ${fps} fps`);
-                })
-                .catch(error => {
-                    console.error('Frame rate error:', error);
-                });
-        }
-        
-        function updatePIDParameters() {
-            const kp = document.getElementById('kp').value;
-            const ki = document.getElementById('ki').value;
-            const kd = document.getElementById('kd').value;
-            
-            fetch(`/update_pid_parameters?kp=${kp}&ki=${ki}&kd=${kd}`)
-                .then(response => response.json())
-                .then(data => {
-                    console.log(`PID updated: Kp=${kp}, Ki=${ki}, Kd=${kd}`);
-                })
-                .catch(error => {
-                    console.error('PID update error:', error);
-                });
-        }
-        
-        // =================================================================
-        // STATUS UPDATES
-        // =================================================================
-        
-        function updateStatus() {
-            fetch('/status')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('lastCommand').textContent = data.last_command;
-                    document.getElementById('robotConnected').textContent = data.robot_connected ? 'Yes' : 'No';
-                    
-                    if (data.autonomous_mode !== isAutonomous) {
-                        isAutonomous = data.autonomous_mode;
-                        updateAutonomousButtons();
+                    if (data.success) {
+                        addLogEntry('Autonomous mode stopped', 'warning');
+                    } else {
+                        addLogEntry(`Failed to stop autonomous: ${data.message}`, 'error');
                     }
                 })
                 .catch(error => {
-                    console.log('Status update failed:', error);
-                });
-            
-            fetch('/autonomous_status')
-                .then(response => response.json())
-                .then(data => {
-                    updateFeatureStatus('lineFollowing', data.features.line_following);
-                    updateFeatureStatus('signDetection', data.features.sign_detection);
-                    updateFeatureStatus('speedEstimation', data.features.speed_estimation);
-                })
-                .catch(error => {
-                    console.log('Feature status update failed:', error);
+                    addLogEntry('Error stopping autonomous mode', 'error');
                 });
         }
 
-        function updateFeatureStatus(featureName, status) {
-            const featureElement = document.getElementById(featureName + 'Feature');
-            const statusElement = document.getElementById(featureName + 'Status');
-            
-            // Remove existing status classes
-            featureElement.classList.remove('active', 'disabled', 'error');
-            statusElement.classList.remove('active', 'disabled', 'error');
-            
-            // Update text and styling based on status
-            if (status === 'Active') {
-                statusElement.textContent = '✅ Active';
-                featureElement.classList.add('active');
-                statusElement.classList.add('active');
-            } else if (status === 'Disabled') {
-                statusElement.textContent = '⚪ Disabled';
-                featureElement.classList.add('disabled');
-                statusElement.classList.add('disabled');
-            } else if (status.startsWith('Error')) {
-                statusElement.textContent = '❌ Error';
-                featureElement.classList.add('error');
-                statusElement.classList.add('error');
-            } else {
-                statusElement.textContent = status;
-                featureElement.classList.add('disabled');
-                statusElement.classList.add('disabled');
+        function emergencyStop() {
+            fetch('/move/stop')
+                .then(response => response.json())
+                .then(data => {
+                    addLogEntry('Emergency stop activated', 'warning');
+                })
+                .catch(error => {
+                    addLogEntry('Error with emergency stop', 'error');
+                });
+        }
+
+        // Camera Controls
+        function updateCameraPan(value) {
+            document.getElementById('panValue').textContent = value + '°';
+            fetch(`/set_camera_pan?angle=${value}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLogEntry(`Camera pan set to ${value}°`, 'success');
+                    }
+                })
+                .catch(error => console.error('Error setting camera pan:', error));
+        }
+
+        function updateCameraTilt(value) {
+            document.getElementById('tiltValue').textContent = value + '°';
+            fetch(`/set_camera_tilt?angle=${value}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLogEntry(`Camera tilt set to ${value}°`, 'success');
+                    }
+                })
+                .catch(error => console.error('Error setting camera tilt:', error));
+        }
+
+        function cameraLookDown() {
+            fetch('/camera_look_down')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('panSlider').value = 0;
+                        document.getElementById('tiltSlider').value = -30;
+                        document.getElementById('panValue').textContent = '0°';
+                        document.getElementById('tiltValue').textContent = '-30°';
+                        addLogEntry('Camera positioned for line following', 'success');
+                    }
+                })
+                .catch(error => console.error('Error positioning camera:', error));
+        }
+
+        function cameraLookForward() {
+            fetch('/camera_look_forward')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('panSlider').value = 0;
+                        document.getElementById('tiltSlider').value = 0;
+                        document.getElementById('panValue').textContent = '0°';
+                        document.getElementById('tiltValue').textContent = '0°';
+                        addLogEntry('Camera positioned forward', 'success');
+                    }
+                })
+                .catch(error => console.error('Error positioning camera:', error));
+        }
+
+        // Manual Movement
+        function moveRobot(direction) {
+            if (autonomousMode && direction !== 'stop') {
+                addLogEntry('Manual control disabled during autonomous mode', 'warning');
+                return;
+            }
+
+            fetch(`/move/${direction}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLogEntry(`Robot moved ${direction}`, 'success');
+                    } else {
+                        addLogEntry(`Movement failed: ${data.message}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    addLogEntry(`Error moving ${direction}`, 'error');
+                });
+        }
+
+        // Debug Controls
+        function updateDebugLevel(value) {
+            document.getElementById('debugLevelValue').textContent = value;
+            fetch(`/set_debug_level?level=${value}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLogEntry(`Debug level set to ${value}`, 'success');
+                    }
+                })
+                .catch(error => console.error('Error setting debug level:', error));
+        }
+
+        function updateFrameRate(value) {
+            document.getElementById('frameRateValue').textContent = value + ' fps';
+            fetch(`/set_frame_rate?fps=${value}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLogEntry(`Frame rate set to ${value} fps`, 'success');
+                    }
+                })
+                .catch(error => console.error('Error setting frame rate:', error));
+        }
+
+        function updatePidParameters() {
+            const kp = document.getElementById('pidKp').value;
+            const ki = document.getElementById('pidKi').value;
+            const kd = document.getElementById('pidKd').value;
+
+            fetch(`/update_pid_parameters?kp=${kp}&ki=${ki}&kd=${kd}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addLogEntry(`PID updated: Kp=${kp}, Ki=${ki}, Kd=${kd}`, 'success');
+                    }
+                })
+                .catch(error => console.error('Error updating PID parameters:', error));
+        }
+
+        // Speed Estimation Controls (Placeholders)
+        function startSpeedCalibration() {
+            addLogEntry('Speed calibration not yet implemented', 'warning');
+        }
+
+        function resetSpeedCalibration() {
+            addLogEntry('Speed calibration reset not yet implemented', 'warning');
+        }
+
+        // Keyboard Controls
+        function handleKeyPress(event) {
+            if (autonomousMode) return;
+
+            switch(event.key.toLowerCase()) {
+                case 'w':
+                    event.preventDefault();
+                    moveRobot('forward');
+                    break;
+                case 's':
+                    event.preventDefault();
+                    moveRobot('backward');
+                    break;
+                case 'a':
+                    event.preventDefault();
+                    moveRobot('left');
+                    break;
+                case 'd':
+                    event.preventDefault();
+                    moveRobot('right');
+                    break;
+                case ' ':
+                    event.preventDefault();
+                    moveRobot('stop');
+                    break;
             }
         }
-        
-        // =================================================================
-        // KEYBOARD CONTROLS
-        // =================================================================
-        
-        function setupKeyboardControls() {
-            document.addEventListener('keydown', function(event) {
-                const key = event.key.toLowerCase();
-                
-                if (['w', 'a', 's', 'd', 'f'].includes(key)) {
-                    event.preventDefault();
-                }
-                
-                switch(key) {
-                    case 'w':
-                        moveRobot('forward');
-                        highlightButton('w');
-                        break;
-                    case 'a':
-                        moveRobot('left');
-                        highlightButton('a');
-                        break;
-                    case 's':
-                        moveRobot('backward');
-                        highlightButton('s');
-                        break;
-                    case 'd':
-                        moveRobot('right');
-                        highlightButton('d');
-                        break;
-                    case 'f':
-                        moveRobot('stop');
-                        highlightButton('f');
-                        break;
-                }
-            });
-        }
-        
-        function highlightButton(key) {
-            const button = document.querySelector(`[data-key="${key}"]`);
-            if (button) {
-                button.style.transform = 'scale(0.95)';
-                button.style.opacity = '0.8';
-                setTimeout(() => {
-                    button.style.transform = 'translateY(-2px)';
-                    button.style.opacity = '1';
-                }, 100);
+
+        // Logging
+        function addLogEntry(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Keep only last 50 entries
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
             }
         }
     </script>

@@ -25,8 +25,8 @@ except ImportError:
 # Students enable features when they're ready
 # =============================================================================
 FEATURES_ENABLED = {
-    'line_following': True,   # Week 1 - Enable when ready
-    'sign_detection': False,  # Week 2 - Student enables when implemented  
+    'line_following': False,   # Week 1 - Enable when ready
+    'sign_detection': True,  # Week 2 - Student enables when implemented  
     'speed_estimation': False # Week 3 - Student enables when implemented
 }
 
