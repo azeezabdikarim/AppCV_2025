@@ -44,6 +44,8 @@ class RobotController:
             self.frame_counter = 0
             self.previous_frame = None
             self.current_speed = 0.0
+            self.sign_stop_until = None      # Time when sign stop expires
+            self.sign_stop_duration = 3.0    # Seconds to stop for detected signs
             
             # Debug and performance settings
             self.debug_level = 0
@@ -208,37 +210,51 @@ class RobotController:
             'mode': 'Autonomous' if self.autonomous_mode else 'Manual'
         }
         
-        # Process line following (always for debug, apply control only if autonomous)
+        # Check if currently stopped for sign detection
+        current_time = time.time()
+        stopped_for_sign = (self.sign_stop_until is not None and current_time < self.sign_stop_until)
+        
+        # Week 2: Sign Detection
+        if self.sign_detector and FEATURES_ENABLED['sign_detection'] and not stopped_for_sign:
+            detected_signs = self.sign_detector.detect_signs(frame)
+            if self.sign_detector.should_stop(detected_signs, frame):
+                self.sign_stop_until = current_time + self.sign_stop_duration
+                stopped_for_sign = True
+                print("🛑 Stopping for detected sign")
+        
+        # Week 3: Speed Estimation
+        if self.speed_estimator and FEATURES_ENABLED['speed_estimation']:
+            self.current_speed = self.speed_estimator.estimate_speed(frame, self.previous_frame)
+            self.debug_data['current_speed'] = round(self.current_speed, 1)
+        
+        # Week 1: Line Following (skip if stopped for sign)
         if self.line_follower and FEATURES_ENABLED['line_following']:
             try:
-                # Get steering angle and debug data
-                steering_angle = self.line_follower.compute_steering_angle(
-                    frame, debug_level=self.debug_level
-                )
+                steering_angle = self.line_follower.compute_steering_angle(frame, debug_level=self.debug_level)
                 
-                # Get visual debug overlay
                 debug_frame = self.line_follower.get_debug_frame()
                 if debug_frame is not None:
                     display_frame = debug_frame
                 
-                # Get sidebar debug data
                 if hasattr(self.line_follower, 'current_debug_data'):
                     self.debug_data.update(self.line_follower.current_debug_data)
                 
-                # Apply control only in autonomous mode
-                if self.autonomous_mode:
-                    current_time = time.time()
+                # Apply control only if autonomous and not stopped for sign
+                if self.autonomous_mode and not stopped_for_sign:
                     if current_time - self.last_frame_time >= self.frame_interval:
                         self.last_frame_time = current_time
                         self.frame_counter += 1
                         
                         if self.picar:
                             self.picar.set_dir_servo_angle(steering_angle)
-                            self.picar.forward(100)  # 1% speed
+                            self.picar.forward(100)
                 
             except Exception as e:
                 print(f"Line following error: {e}")
                 self.feature_status['line_following'] = f'Runtime Error: {str(e)}'
+        
+        # Store frame for next speed estimation
+        self.previous_frame = frame.copy()
         
         return display_frame
     

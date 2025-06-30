@@ -42,7 +42,7 @@ class LineFollower:
         self.roi_top = 0.6        # Start ROI at 60% down the image
         self.roi_bottom = 0.9     # End ROI at 90% down the image
         self.roi_left = 0.1       # Start ROI at 10% from left
-        self.roi_right = 0.9      # End ROI at 90% from right
+        self.roi_right = 0.9      # End ROI at 90% from left
         
         self.canny_low = 50       # Lower threshold for edge detection
         self.canny_high = 150     # Upper threshold for edge detection
