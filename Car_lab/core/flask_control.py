@@ -232,6 +232,34 @@ def set_frame_rate():
             'success': False,
             'message': f'Error setting frame rate: {str(e)}'
         }), 500
+    
+@app.route('/set_debug_mode')
+def set_debug_mode():
+    """Set debug visualization mode using query parameter"""
+    try:
+        mode = request.args.get('mode', 'line_following')
+        success = robot.set_debug_mode(mode)
+        return jsonify({
+            'success': success,
+            'debug_mode': robot.debug_mode,
+            'available_modes': robot.available_modes,
+            'message': f'Debug mode set to {mode}' if success else f'Invalid debug mode: {mode}'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error setting debug mode: {str(e)}'
+        }), 500
+
+@app.route('/get_week2_performance')
+def get_week2_performance():
+    """Get Week 2 specific performance metrics"""
+    try:
+        return jsonify(robot.get_debug_mode_status())
+    except Exception as e:
+        return jsonify({
+            'error': f'Error getting performance data: {str(e)}'
+        }), 500
 
 @app.route('/update_pid_parameters')
 def update_pid_parameters():
