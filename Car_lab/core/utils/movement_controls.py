@@ -107,7 +107,7 @@ class MovementController:
         if self.picar and not self.is_moving:
             try:
                 self.picar.set_dir_servo_angle(steering_angle)
-                self.picar.forward(100)  # 1% speed
+                self.picar.forward(1)  # 1% speed
             except Exception as e:
                 print(f"Autonomous control error: {e}")
     
@@ -121,6 +121,14 @@ class MovementController:
             self.picar.stop()
             self.picar.set_dir_servo_angle(0)
             self.is_moving = False
+
+    def stop(self):
+        """Stop the robot (gentler than emergency_stop)"""
+        if self.picar:
+            self.picar.stop()
+            self.picar.set_dir_servo_angle(0)  # Center the wheels
+            self.is_moving = False
+        print("Robot stopped")
     
     def move_forward(self, duration=0.5, speed=50, autonomous_mode=False):
         """Move robot forward for specified duration"""

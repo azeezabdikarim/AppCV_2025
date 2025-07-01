@@ -108,7 +108,13 @@ def stop_autonomous():
 @app.route('/autonomous_status')
 def get_autonomous_status():
     """Get detailed autonomous system status"""
-    return jsonify(robot.get_feature_status())
+    status = robot.get_feature_status()
+    
+    # Let the robot controller determine the button text
+    button_text = robot.get_autonomous_button_text()
+    status['button_text'] = button_text
+    
+    return jsonify(status)
 
 # =============================================================================
 # CAMERA CONTROL ROUTES (FIXED - Using Query Parameters)
@@ -346,8 +352,8 @@ def get_status():
     return jsonify({
         'last_command': last_command,
         'command_count': command_count,
-        'is_moving': robot.is_moving if robot.picar else False,
-        'robot_connected': robot.picar is not None,
+        'is_moving': robot.movement_controller.is_moving if robot.movement_controller.is_hardware_connected() else False,
+        'robot_connected': robot.movement_controller.is_hardware_connected(),
         'autonomous_mode': robot.autonomous_mode
     })
 

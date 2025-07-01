@@ -11,7 +11,7 @@ class DebugVisualizer:
         """Initialize the debug visualizer"""
         pass
     
-    def create_week2_debug_frame(self, original_frame, cache_manager, timing_utils, status_manager):
+    def create_week2_debug_frame(self, original_frame, cache_manager, timing_utils, status_manager, sign_detector):
         """Create dual-panel visualization for Week 2 object detection and depth"""
         height, width = original_frame.shape[:2]
         
@@ -22,28 +22,32 @@ class DebugVisualizer:
         
         # Add detection panel label
         cv2.putText(left_panel, "Object Detection", (10, 25), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
         # Right panel: Depth analysis
         right_panel = original_frame.copy()
-        if cache_manager.cached_depth_map is not None:
+        
+        # Get cached depth map from SignDetector
+        cached_depth_map = sign_detector.get_cached_depth_map() if sign_detector else None
+        
+        if cached_depth_map is not None:
             # Apply depth colormap
-            depth_colored = cv2.applyColorMap(cache_manager.cached_depth_map, cv2.COLORMAP_PLASMA)
+            depth_normalized = cv2.normalize(cached_depth_map, None, 0, 255, cv2.NORM_MINMAX)
+            depth_uint8 = depth_normalized.astype(np.uint8)
+            depth_colored = cv2.applyColorMap(depth_uint8, cv2.COLORMAP_PLASMA)
             right_panel = cv2.addWeighted(right_panel, 0.6, depth_colored, 0.4, 0)
             
             # Show frame counter alignment
             cv2.putText(right_panel, "[0]", (width - 40, height - 10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
         else:
-            # Show waiting status with frame delay counter
-            delay = cache_manager.detection_frame_counter - cache_manager.depth_frame_counter
-            if delay > 0:
-                cv2.putText(right_panel, f"[-{delay}]", (width - 50, height - 10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
+            # Show waiting status
+            cv2.putText(right_panel, "Depth: Enable advanced mode", (10, height//2), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
         
         # Add depth panel label
         cv2.putText(right_panel, "Depth Analysis", (10, 25), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
         # Combine panels side by side
         combined = np.hstack([left_panel, right_panel])

@@ -41,8 +41,8 @@ class RobotController:
             # Week 2: Object Detection & Depth Analysis Performance
             self.detection_interval = 0.5    # Run object detection every 0.5 seconds
             self.depth_interval = 1.0        # Run depth analysis every 1.0 seconds
-            self.sign_stop_duration = 3.0    # Seconds to stop for detected signs
-            self.stop_cooldown_duration = 2.0 # Cooldown after movement resumes
+            self.sign_stop_duration = 2.0    # Seconds to stop for detected signs
+            self.stop_cooldown_duration = 1.0 # Cooldown after movement resumes
             
             # Debug and visualization settings
             self.debug_level = 0             # 0-4, higher = more debug info
@@ -118,7 +118,7 @@ class RobotController:
                 if module_name in sys.modules:
                     del sys.modules[module_name]
                 
-                from week1_line_following.line_follower_easy_debugging import LineFollower
+                from week1_line_following.line_follower import LineFollower
                 self.line_follower = LineFollower()
                 self.feature_status['line_following'] = 'Active'
                 print("✅ Line following enabled and loaded")
@@ -170,19 +170,9 @@ class RobotController:
             print(f"   {feature}: {status}")
     
     def start_autonomous_mode(self):
-        """Start autonomous line following mode"""
+        """Start autonomous mode - either line following or straight movement"""
         print("Starting autonomous mode...")
         
-        if not FEATURES_ENABLED['line_following']:
-            error_msg = "Line following is disabled in feature config"
-            print(f"❌ {error_msg}")
-            return False, error_msg
-        
-        if not self.line_follower:
-            error_msg = f"Line following not available: {self.feature_status['line_following']}"
-            print(f"❌ {error_msg}")
-            return False, error_msg
-            
         if not self.movement_controller.is_hardware_connected():
             error_msg = "Robot hardware not connected"
             print(f"❌ {error_msg}")
@@ -190,9 +180,16 @@ class RobotController:
             
         self.autonomous_mode = True
         self.frame_counter = 0
-        self.debug_data['mode'] = 'Autonomous'
-        print("✅ Autonomous mode started successfully")
-        return True, "Autonomous mode started"
+        
+        # Determine mode based on line following availability
+        if FEATURES_ENABLED['line_following'] and self.line_follower:
+            self.debug_data['mode'] = 'Line Following'
+            print("✅ Autonomous line following started")
+            return True, "Line following started"
+        else:
+            self.debug_data['mode'] = 'Straight Movement'
+            print("✅ Autonomous straight movement started")
+            return True, "Straight movement started"
     
     def stop_autonomous_mode(self):
         """Stop autonomous mode and return to manual control"""
@@ -227,6 +224,7 @@ class RobotController:
                 self.sign_stop_until = current_time + self.sign_stop_duration
                 self.status_manager.set_recently_stopped(True)
                 stopped_for_sign = True
+                self.movement_controller.stop() 
                 print("Stopping for detected sign")
         
         # Anti-infinite-stop: Reset cooldown when robot starts moving again
@@ -262,11 +260,20 @@ class RobotController:
             except Exception as e:
                 print(f"Line following error: {e}")
                 self.feature_status['line_following'] = f'Runtime Error: {str(e)}'
+
+        # FALLBACK: Straight movement if line following not available
+        elif self.autonomous_mode and not stopped_for_sign:
+            if current_time - self.last_frame_time >= self.frame_interval:
+                self.last_frame_time = current_time
+                self.frame_counter += 1
+                
+                # Just go straight (steering angle = 0)
+                self.movement_controller.apply_autonomous_control(0)
         
         # Route debug visualization based on mode
         if self.debug_mode == "object_detection":
             display_frame = self.debug_visualizer.create_week2_debug_frame(
-                display_frame, self.cache_manager, self.timing_utils, self.status_manager
+                display_frame, self.cache_manager, self.timing_utils, self.status_manager, self.sign_detector
             )
         elif self.debug_mode == "speed_estimation":
             display_frame = self.debug_visualizer.create_week3_debug_frame(
@@ -409,6 +416,13 @@ class RobotController:
             'debug_level': self.debug_level,
             'debug_mode': self.debug_mode
         }
+    
+    def get_autonomous_button_text(self):
+        """Get the appropriate button text for autonomous mode"""
+        if FEATURES_ENABLED['line_following'] and self.line_follower:
+            return "Start Line Following"
+        else:
+            return "Start Straight Movement"
 
 # Global robot instance
 robot = RobotController()
