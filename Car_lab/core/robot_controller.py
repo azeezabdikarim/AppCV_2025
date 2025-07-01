@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.movement_controls import MovementController
 from utils.debug_visualizer import DebugVisualizer
 from utils.utils import TimingUtils, CacheManager, StatusManager
+from utils.console_logger import console_logger
 
 try:
     from picarx import Picarx
@@ -171,7 +172,7 @@ class RobotController:
     
     def start_autonomous_mode(self):
         """Start autonomous mode - either line following or straight movement"""
-        print("Starting autonomous mode...")
+        console_logger.info("Starting autonomous mode...")
         
         if not self.movement_controller.is_hardware_connected():
             error_msg = "Robot hardware not connected"
@@ -184,11 +185,11 @@ class RobotController:
         # Determine mode based on line following availability
         if FEATURES_ENABLED['line_following'] and self.line_follower:
             self.debug_data['mode'] = 'Line Following'
-            print("✅ Autonomous line following started")
+            console_logger.info("✅ Autonomous line following started")
             return True, "Line following started"
         else:
             self.debug_data['mode'] = 'Straight Movement'
-            print("✅ Autonomous straight movement started")
+            console_logger.info("✅ Autonomous straight movement started")
             return True, "Straight movement started"
     
     def stop_autonomous_mode(self):
@@ -225,12 +226,12 @@ class RobotController:
                 self.status_manager.set_recently_stopped(True)
                 stopped_for_sign = True
                 self.movement_controller.stop() 
-                print("Stopping for detected sign")
+                console_logger.info("Stopping for detected sign")
         
         # Anti-infinite-stop: Reset cooldown when robot starts moving again
         if self.status_manager.recently_stopped_for_sign and not stopped_for_sign and self.autonomous_mode:
             self.status_manager.start_cooldown(current_time, self.stop_cooldown_duration)
-            print("Stop cooldown activated")
+            console_logger.info("Stop cooldown activated")
         
         # Week 3: Speed Estimation
         if self.speed_estimator and FEATURES_ENABLED['speed_estimation']:

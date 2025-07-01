@@ -4,6 +4,9 @@ import cv2
 import numpy as np
 import os
 import time
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.utils.console_logger import console_logger
 
 class SignDetector:
     """
@@ -199,7 +202,7 @@ class SignDetector:
                 
                 # Compare to distance threshold
                 if estimated_distance < self.depth_distance_threshold:
-                    print(f"🛑 STOPPING: {detection['class_name']} at {estimated_distance:.1f}m < {self.depth_distance_threshold}m")
+                    console_logger.stop(f"🛑 STOPPING: {detection['class_name']} at {estimated_distance:.1f}m < {self.depth_distance_threshold}m")
                     return True
             
             return False  # No objects close enough to stop

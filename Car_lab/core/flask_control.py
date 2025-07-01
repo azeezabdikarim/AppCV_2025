@@ -7,6 +7,8 @@ import sys
 import socket
 from robot_controller import robot
 from camera_manager import camera
+from utils.console_logger import console_logger
+
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -115,6 +117,12 @@ def get_autonomous_status():
     status['button_text'] = button_text
     
     return jsonify(status)
+
+@app.route('/console_logs')
+def get_console_logs():
+    """Get recent console log messages"""
+    messages = console_logger.get_recent_messages(limit=50)
+    return jsonify({'messages': messages})
 
 # =============================================================================
 # CAMERA CONTROL ROUTES (FIXED - Using Query Parameters)

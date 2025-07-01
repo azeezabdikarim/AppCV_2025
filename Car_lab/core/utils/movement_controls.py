@@ -2,6 +2,8 @@
 
 import threading
 import time
+from .console_logger import console_logger
+
 
 try:
     from picarx import Picarx
@@ -128,7 +130,7 @@ class MovementController:
             self.picar.stop()
             self.picar.set_dir_servo_angle(0)  # Center the wheels
             self.is_moving = False
-        print("Robot stopped")
+        console_logger.info("Robot stopped")
     
     def move_forward(self, duration=0.5, speed=50, autonomous_mode=False):
         """Move robot forward for specified duration"""
