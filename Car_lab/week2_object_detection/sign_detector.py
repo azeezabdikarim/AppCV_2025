@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.utils.console_logger import console_logger
 
+
 class SignDetector:
     """
     WEEK 2: PERCEPTION FOR AUTONOMOUS SYSTEMS
@@ -32,6 +33,8 @@ class SignDetector:
     - Multiple models can work together
     - Threshold tuning is critical for real-world performance
     - Understand the perfomrance of simple implmentations before adding complexity
+
+    NOTE: Use console_logger.stop() instead of print() for important messages - they'll appear in the web console!
     """
     
     def __init__(self):
@@ -63,8 +66,17 @@ class SignDetector:
 
     def detect_signs(self, camera_frame):
         """
-        WORKING IMPLEMENTATION: Complete detect_signs method
-        (Students would implement this following the guided comments)
+        STEP 1: OBJECT DETECTION PIPELINE
+        =================================
+        
+        CONCEPT: Transform camera image → list of detected objects
+        
+        THE PROCESS:
+        1. Preprocess: Camera format → Model format (we provide this)
+        2. Inference: Run neural network (YOU implement this)  
+        3. Investigate: Explore what the model outputs (YOU discover this)
+        4. Parse: Extract useful information (YOU implement this)
+        5. Filter: Keep only confident detections (YOU decide thresholds)
         """
         
         if self.session is None:
@@ -72,95 +84,160 @@ class SignDetector:
         
         try:
             # STEP 1: Preprocessing (provided for you)
+            # Converts 320x240 BGR camera image → to the tensor format needed for our Yolov8 nanon model
             input_tensor = self._preprocess_frame(camera_frame)
             if input_tensor is None:
                 return []
             
             print(f"Preprocessed frame shape: {input_tensor.shape}")
             
-            # STEP 2: INFERENCE - Student implementation
-            outputs = self.session.run(None, {self.input_name: input_tensor})
+            # STEP 2: INFERENCE - YOU IMPLEMENT THIS LINE
+            # TASK: Run the neural network on your preprocessed image
+            # TODO: Call self.session.run() with the input tensor
+            # HINT: outputs = self.session.run(None, {self.input_name: input_tensor})
+            
+            outputs = None  # TODO: Replace this line with actual inference call
             
             if outputs is None:
-                return []
+                return [] 
             
             # STEP 3: INVESTIGATE THE OUTPUTS
+            # DISCOVERY TASK: What did the model give us back?
             # print(f"Model output shape: {outputs[0].shape}")
             # print(f"Output data type: {outputs[0].dtype}")
             
-            # STEP 4: PARSE THE OUTPUTS - Student implementation
-            detections = []
+            # QUESTION: What do you think these dimensions mean?
+            # Our model vocabulary: ['Stop_Sign', 'TU_Logo', 'Stahp', 'Falling_Cows'] (4 classes)
+            # Expected shape: [1, 8, 8400] = [batch, coordinates+classes, detections]
             
-            # Reshape the outputs to work with them
-            pred = outputs[0][0]  # Remove batch dimension [1, 8, 8400] -> [8, 8400]
-            pred = np.transpose(pred, (1, 0))  # Transpose to [8400, 8]
+            # STEP 4: PARSE THE OUTPUTS - YOU IMPLEMENT THIS
+            # The output format is: [center_x, center_y, width, height, class0_conf, class1_conf, class2_conf, class3_conf]
             
-            # Loop through each detection
-            for detection in pred:
-                # Extract coordinates (first 4 values)
-                center_x, center_y, width, height = detection[:4]
-                
-                # Extract confidence scores (last 4 values)  
-                class_confidences = detection[4:]
-                
-                # Find the class with highest confidence
-                max_confidence = np.max(class_confidences)
-                predicted_class_id = np.argmax(class_confidences)
-                
-                # Filter by confidence threshold
-                if max_confidence > self.confidence_threshold:
-                    # Convert center format to corner format and scale coordinates
-                    converted_bbox = self._convert_coordinates(center_x, center_y, width, height, camera_frame.shape)
-                    
-                    # Add to detections list in required format
-                    detections.append({
-                        'bbox': converted_bbox,
-                        'confidence': float(max_confidence),
-                        'class_name': self.class_names[predicted_class_id]
-                    })
+            detections = [] # This is where we will store properly formated boundary boxes we detect
+            
+            # TODO: Reshape the outputs to work with them. Currenlty our outputs is shapped like [1,8, n], but we want ot pupulate our 'detections' list iwht list structed as [n, 8] 
+            # HINT: One way of going from [1, 8, n] to [n, 8] ......
+            # pred = outputs[0]  # Remove batch dimension
+            # pred = np.transpose(pred, (1, 0))  # Transpose to [8400, 8]
+            
+            # TODO: Loop through each detection
+            # for detection in pred:
+            #     # TODO: Extract coordinates (first 4 values from detection)
+            #     # center_x, center_y, width, height = 
+            #     
+            #     # TODO: Extract confidence scores (last 4 values from detection)  
+            #     # class_confidences =
+            #     
+            #     # TODO: Find the class with highest confidence
+            #     # max_confidence = np.max(class_confidences)
+            #     # predicted_class_id = np.argmax(class_confidences)
+            #     
+            #     # TODO: Filter by confidence threshold
+            #     # if max_confidence > self.confidence_threshold:
+            #         # TODO: Convert center format to corner format and scale coordinates
+            #         # converted_bbox = self._convert_coordinates(center_x, center_y, width, height, camera_frame.shape)
+            #         # 
+            #         # TODO: Add to detections list in required format
+            #         # detections.append({
+            #         #     'bbox': converted_bbox,
+            #         #     'confidence': float(max_confidence),
+            #         #     'class_name': self.class_names[predicted_class_id]
+            #         # })
+            
+            # REQUIRED OUTPUT FORMAT:
+            # [{'bbox': [x, y, w, h], 'confidence': 0.95, 'class_name': 'Stop_Sign'}, ...]
             
             return detections
             
         except Exception as e:
             print(f"Detection error: {e}")
             return []
-
+    
     def should_stop(self, detected_signs, camera_frame):
         """
-        WORKING IMPLEMENTATION: Complete should_stop method
-        (Students would implement this following the guided comments)
+        STEP 2: DECISION LOGIC PIPELINE  
+        ===============================
+        
+        CONCEPT: Convert perception data to robot actions
+        
+        THE CORE INSIGHT:
+        How do we estimate distance from a single 2D camera image?
+        
+        APPROACH 1 - SIZE-BASED REASONING (Simple & Effective):
+        - Objects appear larger when closer to camera
+        - Measure bounding box area in pixels  
+        - Large area = close object = STOP
+        - Small area = far object = CONTINUE
+        
+        APPROACH 2 - DEPTH ESTIMATION (Advanced):
+        - Use an AI model to estimate depth at every pixel
+        - Sample depths within the bounding box
+        - If depth estimates show we're close to the object...... STOP!
+        
+        IMPORTANT: We must check ALL detected objects
+        - Multiple signs might be detected in one frame
+        - If any object is close enough, stop the robot
+        - Iterate through the entire detected_signs list
         """
         
         if not detected_signs:
             return False  # No objects detected, safe to continue
         
-        # APPROACH 1: SIZE-BASED STOPPING (Simple implementation)
-        # Check ALL detected objects to see if ANY are close enough to stop
-
-
+        # APPROACH 1: SIZE-BASED STOPPING (Implement this first)
+        # CONCEPT: Bigger bounding box = closer object
+        
+        # TASK: Check ALL detected objects to see if ANY are close enough to stop
+        # TODO: Loop through detected_signs and check each detection
         # for detection in detected_signs:
         #     bbox = detection['bbox']  # [x, y, width, height]
-            
-        #     # Calculate area of this detection
-        #     area = bbox[2] * bbox[3]  # width * height
-            
-        #     # Compare to threshold
-        #     if area > self.simple_area_threshold:
-        #         print(f"STOPPING: {detection['class_name']} area {area} > threshold {self.simple_area_threshold}")
-        #         return True
+        #     
+        #     # TODO: Calculate area of this detection using the width and the heigh
+        #     # area = 
+        #     
+        #     # TODO: Compare to threshold
+        #     # if area > self.simple_area_threshold:
+        #         # print(f"STOPPING: {detection['class_name']} area {area} > threshold {self.simple_area_threshold}")
+        #         # return True
         
-
+        # PLACEHOLDER: Remove this when you implement the loop above
+        largest_detection = None  # Replace this
+        largest_area = 0
         
-        # APPROACH 2: DEPTH-BASED STOPPING (Advanced)
-        # Uncomment this when implementing advanced approach:
-        return self._advanced_depth_stopping(detected_signs, camera_frame)
+        # TODO: Calculate area and compare to threshold
+        # EXPERIMENT: Try different thresholds (start with 5000 pixels)
+        # - Too low = stops too far away
+        # - Too high = doesn't stop until very close
+        
+        area_threshold = self.simple_area_threshold  # Tune this parameter
+        
+        if largest_area > area_threshold:
+            print(f"🛑 STOPPING: Object area {largest_area} > threshold {area_threshold}")
+            return True
+        
+        # APPROACH 2: DEPTH-BASED STOPPING (Advanced - implement after area works)
+        # CONCEPT: Use actual relative distance measurements that come from our monocular depth estimation package
+        
+        # UNCOMMENT THIS SECTION WHEN USING THE ADVANCED APPROACH, also comment out the return statmeent above that's based on the area threshold
+        # return self._advanced_depth_stopping(detected_signs, camera_frame)
         
         return False
-
+    
     def _advanced_depth_stopping(self, detected_signs, camera_frame):
         """
-        WORKING IMPLEMENTATION: Complete advanced depth stopping
-        (Students would implement this following the guided comments)
+        ADVANCED: DEPTH-BASED DISTANCE ESTIMATION
+        =========================================
+        
+        CONCEPT: Get actual distance measurements using depth estimation
+        
+        THE PROCESS:
+        1. Run depth estimation model on camera frame
+        2. For each detected object, sample depth within its bounding box
+        3. Calculate average/median depth → real distance
+        4. Stop if distance < threshold
+        
+        DEBUGGING INTEGRATION:
+        - This function caches depth results for visualization
+        - When you implement this, depth maps will appear in debug panel
         """
         
         if self.depth_estimator is None:
@@ -168,42 +245,49 @@ class SignDetector:
             return False
         
         try:
-            # STEP 1: RUN DEPTH MODEL - Student implementation
-            depth_map = self.depth_estimator.predict(camera_frame)
+            # STEP 1: RUN DEPTH MODEL - YOU IMPLEMENT THIS LINE
+            # TODO: Get depth map from MiDaS model
+            # HINT: depth_map = self.depth_estimator.predict(camera_frame)
+            
+            depth_map = None  # TODO: Replace this line with actual depth inference
             
             if depth_map is None:
                 return False  # Fallback to area-based method
             
-            # DEBUGGING: Cache depth results for visualization
-            # Students uncomment this line to see depth maps in debug panel
-            self._cached_depth_map = depth_map
+            # VERY IMPORTANT! VERY IMPORTANT FOR DEBUGGING!
+            # VERY IMPORTANT! VERY IMPORTANT FOR DEBUGGING!
+            # VERY IMPORTANT! VERY IMPORTANT FOR DEBUGGING!
+            # VERY IMPORTANT! VERY IMPORTANT FOR DEBUGGING!
+            # DEBUGGING: Cache depth results for visualization 
+            # UNCOMMENT the line below to see depth maps in debug panel
+            # self._cached_depth_map = depth_map
             
             # STEP 2: SAMPLE DEPTH VALUES FOR EACH DETECTION
-            # Check ALL detected objects, not just the largest one
+            # DISCOVERY QUESTION: Where in the depth map should you look?
+            # ANSWER: Look at pixels inside the detected bounding boxes!
+            
+            # IMPORTANT: Check ALL detected objects, not just the largest one
             for detection in detected_signs:
                 bbox = detection['bbox']  # [x, y, w, h]
                 x, y, w, h = bbox
                 
-                # Ensure coordinates are within depth map bounds
-                if x < 0 or y < 0 or x + w > depth_map.shape[1] or y + h > depth_map.shape[0]:
-                    continue  # Skip invalid bounding boxes
+                # TODO: Extract depth values within bounding box
+                # HINT: depth_region = depth_map[y:y+h, x:x+w]
                 
-                # Extract depth values within bounding box
-                depth_region = depth_map[y:y+h, x:x+w]
+                # DISCOVERY QUESTION: How do you convert depth map values to real distances?
+                # EXPERIMENT: Print depth values and see what range they have
+                # HINT: Smaller depth values often mean closer objects
                 
-                if depth_region.size == 0:
-                    continue  # Skip empty regions
+                # TODO: Calculate representative depth (mean, median, minimum?)
+                # representative_depth = np.mean(depth_region)  # or np.median, np.min
                 
-                # Calculate representative depth (median is more robust than mean)
-                representative_depth = np.median(depth_region)
+                # TODO: Convert to real-world distance if needed
+                # estimated_distance = self._depth_to_distance(representative_depth)
                 
-                # Convert to real-world distance
-                estimated_distance = self._depth_to_distance(representative_depth)
-                
-                # Compare to distance threshold
-                if estimated_distance < self.depth_distance_threshold:
-                    console_logger.stop(f"🛑 STOPPING: {detection['class_name']} at {estimated_distance:.1f}m < {self.depth_distance_threshold}m")
-                    return True
+                # TODO: Compare to distance threshold
+                # if estimated_distance < self.depth_distance_threshold:
+                #     console_logger.stop(f"🛑 STOPPING: {detection['class_name']} at {estimated_distance:.1f}m < {self.depth_distance_threshold}m")
+                #     return True
             
             return False  # No objects close enough to stop
             
