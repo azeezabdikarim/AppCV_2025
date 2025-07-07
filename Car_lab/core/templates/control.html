@@ -549,6 +549,105 @@
             color: #888;
         }
 
+        /* Speed Estimation Panel Styles */
+        .speed-panel {
+            background: #2c3e50;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            color: #ecf0f1;
+        }
+
+        .speed-display-large {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .speed-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #e74c3c;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .speed-units {
+            font-size: 18px;
+            color: #bdc3c7;
+            margin-top: 5px;
+        }
+
+        .speed-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .speed-test-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .speed-btn {
+            flex: 1;
+            min-width: 80px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .speed-btn.slow {
+            background-color: #27ae60;
+        }
+
+        .speed-btn.medium {
+            background-color: #f39c12;
+        }
+
+        .speed-btn.fast {
+            background-color: #e74c3c;
+        }
+
+        .speed-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .speed-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .speed-status {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .emergency-stop-speed {
+            background-color: #c0392b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .emergency-stop-speed:hover {
+            background-color: #a93226;
+        }
+
         .log-level-INFO { color: #4CAF50; }
         .log-level-WARN { color: #FF9800; }
         .log-level-ERROR { color: #F44336; }
@@ -648,6 +747,46 @@
                     ⏹️ Stop Autonomous Mode
                 </button>
             </div>
+            <div id="speed-panel" class="speed-panel" style="display: none;">
+                <h3 style="margin-top: 0; color: #ecf0f1;">🏃 Speed Estimation Testing</h3>
+                
+                <!-- Large Speed Display -->
+                <div class="speed-display-large">
+                    <div id="speed-value" class="speed-value">0.00</div>
+                    <div id="speed-units" class="speed-units">m/s</div>
+                </div>
+                
+                <!-- Speed Status -->
+                <div class="speed-status">
+                    <span>Calibration: <span id="calibration-status">Unknown</span></span>
+                    <span>Motor: <span id="motor-status">Stopped</span></span>
+                </div>
+                
+                <!-- Speed Test Controls -->
+                <div class="speed-controls">
+                    <div class="speed-test-buttons">
+                        <button class="speed-btn slow" onclick="runSpeedTest(30)">
+                            Slow<br><small>30% • 3s</small>
+                        </button>
+                        <button class="speed-btn medium" onclick="runSpeedTest(50)">
+                            Medium<br><small>50% • 3s</small>
+                        </button>
+                        <button class="speed-btn fast" onclick="runSpeedTest(70)">
+                            Fast<br><small>70% • 3s</small>
+                        </button>
+                    </div>
+                    
+                    <button class="emergency-stop-speed" onclick="stopSpeedTest()">
+                        🛑 EMERGENCY STOP
+                    </button>
+                </div>
+                
+                <div style="font-size: 12px; color: #7f8c8d; margin-top: 15px;">
+                    💡 Use WASD keys for manual control or speed test buttons for validation.<br>
+                    Speed updates every 200ms. Implement optical flow functions to see live data.
+                </div>
+            </div>
+
         </div>
         
         <div class="sidebar">
@@ -839,48 +978,41 @@
         // =================================================================
         
         function switchDebugTab(mode) {
-            // Check if this tab should be enabled
-            if (!isTabEnabled(mode)) {
-                return;
-            }
-
-            // Update tab styling
-            document.querySelectorAll('.debug-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
+            // Update tab appearance
+            document.querySelectorAll('.debug-tab').forEach(tab => tab.classList.remove('active'));
             document.getElementById(`tab-${mode}`).classList.add('active');
             
-            // Hide all debug content
-            document.querySelectorAll('.debug-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            
-            // Show selected debug content
+            // Update debug content
+            document.querySelectorAll('.debug-content').forEach(content => content.classList.remove('active'));
             document.getElementById(`debug-${mode}`).classList.add('active');
             document.getElementById(`controls-${mode}`).classList.add('active');
             
-            // Update debug title
+            // Update title
             const titles = {
                 'line_following': '🔍 Line Following Debug',
-                'object_detection': '🎯 Object Detection Debug',
+                'object_detection': '🎯 Object Detection Debug', 
                 'speed_estimation': '🚀 Speed Estimation Debug'
             };
             document.getElementById('debugTitle').textContent = titles[mode];
             
-            // Switch robot's debug mode
+            // NEW: Handle speed panel visibility
+            const speedPanel = document.getElementById('speed-panel');
+            const sidebar = document.querySelector('.sidebar');
+            
+            if (mode === 'speed_estimation') {
+                speedPanel.style.display = 'block';
+                sidebar.style.display = 'none';  // Hide sidebar for speed mode
+            } else {
+                speedPanel.style.display = 'none';
+                sidebar.style.display = 'block'; // Show sidebar for other modes
+            }
+            
+            // Update debug mode and start/stop speed polling
             currentDebugMode = mode;
-            fetch(`/set_debug_mode?mode=${mode}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        console.log(`Debug mode switched to: ${mode}`);
-                    } else {
-                        console.error(`Failed to switch debug mode: ${data.message}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Debug mode switch error:', error);
-                });
+            updateSpeedMode();
+            
+            // Set debug mode on backend
+            setDebugMode(mode);
         }
 
         function isTabEnabled(mode) {
@@ -1081,6 +1213,140 @@
         function getDepthFps() {
             // This would come from the robot's depth interval setting  
             return 1.0; // Placeholder - would be calculated from actual intervals
+        }
+
+        // Speed Estimation Mode Variables
+        let speedPollingInterval = null;
+        let isSpeedTestActive = false;
+
+        function updateSpeedMode() {
+            if (currentDebugMode === 'speed_estimation') {
+                startSpeedPolling();
+            } else {
+                stopSpeedPolling();
+            }
+        }
+
+        function startSpeedPolling() {
+            if (speedPollingInterval) return; // Already running
+            
+            speedPollingInterval = setInterval(() => {
+                fetch('/speed_data')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateSpeedDisplay(data);
+                    })
+                    .catch(error => {
+                        console.error('Speed data error:', error);
+                    });
+            }, 200); // 200ms polling
+        }
+
+        function stopSpeedPolling() {
+            if (speedPollingInterval) {
+                clearInterval(speedPollingInterval);
+                speedPollingInterval = null;
+            }
+        }
+
+        // Add to existing updateDebugControls function or create if it doesn't exist
+        function updateDebugControls() {
+            const speedPanel = document.getElementById('speed-panel');
+            const sidebar = document.getElementById('debug-sidebar'); // Assuming this exists
+            
+            if (currentDebugMode === 'speed_estimation') {
+                speedPanel.style.display = 'block';
+                if (sidebar) sidebar.style.display = 'none';
+            } else {
+                speedPanel.style.display = 'none';
+                if (sidebar) sidebar.style.display = 'block';
+            }
+        }
+
+        function updateSpeedDisplay(speedData) {
+            // Update large speed display
+            const speedValue = document.getElementById('speed-value');
+            const speedUnits = document.getElementById('speed-units');
+            
+            if (speedValue) {
+                const speed = speedData.smoothed_speed || speedData.current_speed || 0;
+                speedValue.textContent = speed.toFixed(2);
+                
+                // Color coding based on speed
+                if (speed > 0.4) {
+                    speedValue.style.color = '#e74c3c'; // Red for fast
+                } else if (speed > 0.15) {
+                    speedValue.style.color = '#f39c12'; // Orange for medium
+                } else if (speed > 0.05) {
+                    speedValue.style.color = '#27ae60'; // Green for slow
+                } else {
+                    speedValue.style.color = '#95a5a6'; // Gray for stopped
+                }
+            }
+            
+            // Update status information
+            const calStatus = document.getElementById('calibration-status');
+            if (calStatus) {
+                calStatus.textContent = speedData.calibrated ? 'Calibrated' : 'Not Calibrated';
+                calStatus.style.color = speedData.calibrated ? '#27ae60' : '#e74c3c';
+            }
+            
+            const motorStatus = document.getElementById('motor-status');
+            if (motorStatus) {
+                const power = speedData.motor_power || 0;
+                motorStatus.textContent = power > 0 ? `${power}%` : 'Stopped';
+            }
+            
+            // Update button states
+            isSpeedTestActive = speedData.test_active || false;
+            updateSpeedButtonStates();
+        }
+
+        function runSpeedTest(speedPercent) {
+            if (isSpeedTestActive) return;
+            
+            updateSpeedButtonStates(); // Disable buttons
+            
+            fetch(`/speed_test_control?action=start&speed=${speedPercent}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateStatus(data.message);
+                })
+                .catch(error => {
+                    console.error('Speed test error:', error);
+                    updateStatus('Speed test failed');
+                });
+        }
+
+        function stopSpeedTest() {
+            fetch('/speed_test_control?action=stop')
+                .then(response => response.json())
+                .then(data => {
+                    updateStatus(data.message);
+                })
+                .catch(error => {
+                    console.error('Speed stop error:', error);
+                });
+        }
+
+        function updateSpeedButtonStates() {
+            const buttons = document.querySelectorAll('.speed-btn');
+            buttons.forEach(button => {
+                button.disabled = isSpeedTestActive || autonomousMode;
+            });
+        }
+
+        // Modify existing debug mode change handler
+        function setDebugMode(mode) {
+            fetch(`/set_debug_mode?mode=${mode}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentDebugMode = mode;
+                        updateDebugControls();
+                        updateSpeedMode(); // Add this line
+                    }
+                });
         }
 
         function updateDetectionsList(count) {

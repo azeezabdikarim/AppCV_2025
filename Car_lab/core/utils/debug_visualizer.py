@@ -67,6 +67,55 @@ class DebugVisualizer:
         
         return original_frame
     
+    def create_speed_estimation_debug_frame(self, original_frame, current_speed, speed_data):
+        """Create debug frame for Week 3 speed estimation mode"""
+        debug_frame = original_frame.copy()
+        height, width = debug_frame.shape[:2]
+        
+        # Add speed information overlay
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        
+        # Large speed display in center
+        speed_text = f"Speed: {current_speed:.2f} m/s"
+        font_scale = 1.2
+        text_size = cv2.getTextSize(speed_text, font, font_scale, 2)[0]
+        text_x = (width - text_size[0]) // 2
+        text_y = height // 2
+        
+        # Background rectangle for speed text
+        cv2.rectangle(debug_frame, 
+                     (text_x - 10, text_y - text_size[1] - 10),
+                     (text_x + text_size[0] + 10, text_y + 10),
+                     (0, 0, 0), -1)
+        
+        # Speed text
+        color = (0, 255, 0) if current_speed > 0.1 else (128, 128, 128)
+        cv2.putText(debug_frame, speed_text, (text_x, text_y), 
+                   font, font_scale, color, 2)
+        
+        # Status information
+        status_y = 30
+        
+        # Calibration status
+        cal_status = "Calibrated" if speed_data.get('calibrated', False) else "Not Calibrated"
+        cal_color = (0, 255, 0) if speed_data.get('calibrated', False) else (0, 0, 255)
+        cv2.putText(debug_frame, f"Status: {cal_status}", (10, status_y), 
+                   font, 0.6, cal_color, 2)
+        
+        # Motor power
+        motor_power = speed_data.get('motor_power', 0)
+        if motor_power > 0:
+            cv2.putText(debug_frame, f"Motor: {motor_power}%", (10, status_y + 25), 
+                       font, 0.6, (255, 255, 0), 2)
+        
+        # Speed history indicator
+        history = speed_data.get('speed_history', [])
+        if len(history) > 1:
+            cv2.putText(debug_frame, f"Avg: {np.mean(history[-5:]):.2f} m/s", 
+                       (10, height - 20), font, 0.5, (255, 255, 255), 1)
+        
+        return debug_frame
+    
     def _draw_detection_overlay(self, frame, detections):
         """Draw bounding boxes and labels for detected objects"""
         for detection in detections:

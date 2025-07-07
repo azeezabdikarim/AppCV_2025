@@ -27,8 +27,8 @@ except ImportError:
 # =============================================================================
 FEATURES_ENABLED = {
     'line_following': False,   # Week 1 - Enable when ready
-    'sign_detection': True,  # Week 2 - Student enables when implemented  
-    'speed_estimation': False # Week 3 - Student enables when implemented
+    'sign_detection': False,  # Week 2 - Student enables when implemented  
+    'speed_estimation': True # Week 3 - Student enables when implemented
 }
 
 class RobotController:
@@ -78,6 +78,9 @@ class RobotController:
             # Performance tracking and timing
             self.last_frame_time = time.time()
             self.frame_interval = 1.0 / self.target_fps
+
+            # Speed testing state
+            self._current_test_speed = 0
             
             # Feature modules (loaded based on FEATURES_ENABLED)
             self.line_follower = None
@@ -406,6 +409,83 @@ class RobotController:
             })
         
         return data
+    
+    def get_speed_data(self):
+        """Get current speed data for speed estimation debug mode"""
+        speed_data = {
+            'current_speed': 0.0,
+            'smoothed_speed': 0.0,
+            'speed_history': [],
+            'calibrated': False,
+            'motor_power': 0,
+            'test_active': False
+        }
+        
+        try:
+            if self.speed_estimator and FEATURES_ENABLED['speed_estimation']:
+                # Get speed history from speed estimator
+                if hasattr(self.speed_estimator, 'get_speed_history'):
+                    history_data = self.speed_estimator.get_speed_history()
+                    speed_data.update(history_data)
+                
+                # Add current speed
+                speed_data['current_speed'] = round(self.current_speed, 3)
+                speed_data['calibrated'] = self.speed_estimator.is_calibrated()
+            
+            # Add motor status
+            if hasattr(self, '_current_test_speed'):
+                speed_data['motor_power'] = self._current_test_speed
+                speed_data['test_active'] = True
+            
+        except Exception as e:
+            print(f"Speed data error: {e}")
+        
+        return speed_data
+    
+    def control_speed_test(self, action, speed_percent):
+        """Control speed testing movements"""
+        if not self.movement_controller.is_hardware_connected():
+            return False, "Robot hardware not connected"
+        
+        if self.autonomous_mode:
+            return False, "Cannot run speed test during autonomous mode"
+        
+        try:
+            if action == 'start':
+                # Start movement at specified speed
+                self.movement_controller.picar.set_dir_servo_angle(0)  # Straight
+                self.movement_controller.picar.forward(speed_percent)
+                self._current_test_speed = speed_percent
+                
+                # Auto-stop after 3 seconds
+                import threading
+                def auto_stop():
+                    try:
+                        self.movement_controller.picar.stop()
+                        self._current_test_speed = 0
+                    except:
+                        pass
+                
+                timer = threading.Timer(3.0, auto_stop)
+                timer.start()
+                self._speed_test_timer = timer
+                
+                return True, f"Speed test started at {speed_percent}% for 3 seconds"
+                
+            elif action == 'stop':
+                # Manual stop
+                self.movement_controller.picar.stop()
+                self._current_test_speed = 0
+                
+                if hasattr(self, '_speed_test_timer'):
+                    self._speed_test_timer.cancel()
+                
+                return True, "Speed test stopped"
+                
+        except Exception as e:
+            return False, f"Speed test error: {str(e)}"
+        
+        return False, "Unknown action"
     
     def get_feature_status(self):
         """Return current status of all features"""

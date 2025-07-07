@@ -391,6 +391,48 @@ def test_robot():
             'success': False,
             'message': f'Test failed: {str(e)}'
         })
+    
+@app.route('/speed_data')
+def get_speed_data():
+    """Get current speed data for speed estimation debug mode"""
+    try:
+        speed_data = robot.get_speed_data()
+        return jsonify(speed_data)
+    except Exception as e:
+        return jsonify({
+            'error': f'Speed data error: {str(e)}',
+            'current_speed': 0.0,
+            'smoothed_speed': 0.0,
+            'speed_history': [],
+            'calibrated': False
+        }), 500
+
+@app.route('/speed_test_control')
+def speed_test_control():
+    """Control speed testing (start/stop movements at specific speeds)"""
+    try:
+        action = request.args.get('action', 'stop')  # start, stop
+        speed = request.args.get('speed', type=int, default=30)
+        
+        if robot.autonomous_mode:
+            return jsonify({
+                'success': False,
+                'message': 'Speed testing disabled during autonomous mode'
+            })
+        
+        success, message = robot.control_speed_test(action, speed)
+        
+        return jsonify({
+            'success': success,
+            'message': message,
+            'action': action,
+            'speed': speed if action == 'start' else 0
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Speed test error: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     try:

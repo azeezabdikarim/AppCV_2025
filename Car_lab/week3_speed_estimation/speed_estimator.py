@@ -38,7 +38,10 @@ class SpeedEstimator:
         # Internal state for tracking
         self.previous_gray = None
         self.previous_features = None
-        
+
+        self.speed_history = []
+        self.max_history_length = 10
+
         # Load calibration parameters
         self._load_calibration()
         
@@ -86,22 +89,24 @@ class SpeedEstimator:
             # Optical flow works on grayscale images
             # =============================================================
             
-            # STUDENTS IMPLEMENT:
             # Convert both frames to grayscale using cv2.cvtColor()
-            
-            current_gray = None   # TODO: Convert current frame to grayscale
-            previous_gray = None  # TODO: Convert previous frame to grayscale
+            current_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+            previous_gray = cv2.cvtColor(previous_frame, cv2.COLOR_BGR2GRAY)
             
             # =============================================================
             # STEP 2: FEATURE DETECTION (following paper)
             # Find good features to track in the previous frame
             # =============================================================
             
-            # STUDENTS IMPLEMENT:
             # Use cv2.goodFeaturesToTrack() to find corner features
             # This identifies distinct points that can be reliably tracked
-            
-            features_prev = None  # TODO: Detect features in previous frame
+            features_prev = cv2.goodFeaturesToTrack(
+                previous_gray,
+                maxCorners=self.feature_params['maxCorners'],
+                qualityLevel=self.feature_params['qualityLevel'],
+                minDistance=self.feature_params['minDistance'],
+                blockSize=self.feature_params['blockSize']
+            )
             
             if features_prev is None or len(features_prev) == 0:
                 return 0.0  # No features to track
@@ -111,13 +116,15 @@ class SpeedEstimator:
             # Use Lucas-Kanade method to track features between frames
             # =============================================================
             
-            # STUDENTS IMPLEMENT:
             # Use cv2.calcOpticalFlowPyrLK() to track features from previous to current frame
             # This implements the Lucas-Kanade algorithm with pyramids
-            
-            features_curr = None  # TODO: Track features using Lucas-Kanade
-            status = None         # TODO: Get tracking status for each feature
-            error = None          # TODO: Get tracking error for each feature
+            features_curr, status, error = cv2.calcOpticalFlowPyrLK(
+                previous_gray,
+                current_gray,
+                features_prev,
+                None,
+                **self.lk_params
+            )
             
             # =============================================================
             # STEP 4: FILTER GOOD FEATURES
@@ -127,17 +134,15 @@ class SpeedEstimator:
             if features_curr is None or status is None:
                 return 0.0
             
-            # STUDENTS IMPLEMENT:
             # Filter out features where tracking failed (status == 0)
             # Keep only good features for flow calculation
+            good_prev = []
+            good_curr = []
             
-            good_prev = []  # TODO: Filter previous features
-            good_curr = []  # TODO: Filter current features
-            
-            # for i, (status_flag, err) in enumerate(zip(status, error)):
-            #     if status_flag == 1:  # Good tracking
-            #         good_prev.append(features_prev[i])
-            #         good_curr.append(features_curr[i])
+            for i, (status_flag, err) in enumerate(zip(status, error)):
+                if status_flag == 1:  # Good tracking
+                    good_prev.append(features_prev[i])
+                    good_curr.append(features_curr[i])
             
             if len(good_prev) < 10:  # Need minimum features for reliable estimation
                 return 0.0
@@ -147,19 +152,17 @@ class SpeedEstimator:
             # Compute the magnitude of optical flow vectors
             # =============================================================
             
-            # STUDENTS IMPLEMENT:
             # For each tracked feature, calculate the displacement vector
             # Compute the magnitude (length) of each displacement
             # Take the average magnitude as the overall flow measure
-            
             flow_magnitudes = []
             
-            # TODO: Calculate flow magnitude for each good feature pair
-            # for prev_pt, curr_pt in zip(good_prev, good_curr):
-            #     dx = curr_pt[0] - prev_pt[0]
-            #     dy = curr_pt[1] - prev_pt[1]
-            #     magnitude = np.sqrt(dx*dx + dy*dy)
-            #     flow_magnitudes.append(magnitude)
+            # Calculate flow magnitude for each good feature pair
+            for prev_pt, curr_pt in zip(good_prev, good_curr):
+                dx = curr_pt[0][0] - prev_pt[0][0]
+                dy = curr_pt[0][1] - prev_pt[0][1]
+                magnitude = np.sqrt(dx*dx + dy*dy)
+                flow_magnitudes.append(magnitude)
             
             if not flow_magnitudes:
                 return 0.0
@@ -172,10 +175,8 @@ class SpeedEstimator:
             # Apply calibration parameters to get real-world speed
             # =============================================================
             
-            # STUDENTS IMPLEMENT:
             # Apply linear calibration: speed = slope * flow + intercept
             # This converts pixel flow to real-world speed units
-            
             if self.calibration_loaded:
                 speed = self.flow_to_speed_slope * avg_flow_magnitude + self.flow_to_speed_intercept
             else:
@@ -184,6 +185,11 @@ class SpeedEstimator:
             
             # Ensure speed is non-negative
             speed = max(0.0, speed)
+
+            # Store speed in history for smoothing (new addition)
+            self.speed_history.append(speed)
+            if len(self.speed_history) > self.max_history_length:
+                self.speed_history.pop(0)
             
             return float(speed)
             
@@ -194,6 +200,28 @@ class SpeedEstimator:
     def is_calibrated(self):
         """Check if speed calibration parameters are available"""
         return self.calibration_loaded
+    
+    def get_speed_history(self):
+        """Get speed history for web interface and smoothing"""
+        if not self.speed_history:
+            return {
+                'current_speed': 0.0,
+                'smoothed_speed': 0.0,
+                'speed_history': [],
+                'avg_speed': 0.0
+            }
+        
+        # Calculate smoothed speed (average of last 3 readings)
+        smoothing_window = min(3, len(self.speed_history))
+        recent_speeds = self.speed_history[-smoothing_window:]
+        smoothed_speed = sum(recent_speeds) / len(recent_speeds)
+        
+        return {
+            'current_speed': self.speed_history[-1],
+            'smoothed_speed': smoothed_speed,
+            'speed_history': self.speed_history.copy(),
+            'avg_speed': sum(self.speed_history) / len(self.speed_history)
+        }
 
 # =============================================================================
 # HELPFUL REFERENCE CODE (for students to adapt)
