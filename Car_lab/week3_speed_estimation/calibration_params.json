@@ -1,14 +1,10 @@
 {
     "description": "Speed calibration parameters for optical flow -> real speed conversion",
-    "calibration_date": "2025-01-15",
     "robot_config": "PiCar-X default setup",
     "slope": 0.156,
     "intercept": -0.8,
     "units": "units per second",
-    "r_squared": 0.89,
     "calibration_notes": [
-        "Linear regression from optical flow magnitude to robot speed",
-        "Based on measurements at 4 different speed settings",
-        "Good correlation (R² = 0.89) across speed range 0-80"
+        "Linear regression from optical flow magnitude to robot speed"
     ]
 }

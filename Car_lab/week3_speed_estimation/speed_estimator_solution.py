@@ -49,7 +49,7 @@ class SpeedEstimator:
         # Load calibration parameters
         self._load_calibration()
         
-        print("SpeedEstimator initialized - you: Implement the helper functions!")
+        print("SpeedEstimator initialized - You must Implement the helper functions!")
     
     def _load_calibration(self):
         """Load speed calibration parameters from file"""
@@ -71,7 +71,7 @@ class SpeedEstimator:
                 
         except Exception as e:
             print(f"❌ Error loading calibration: {e}")
-    
+
     def estimate_speed(self, current_frame, previous_frame):
         """
         Main speed estimation function - calls your-implemented helper functions
@@ -195,7 +195,7 @@ class SpeedEstimator:
         
         return features_curr, status, error
     
-    def _filter_good_features(self, features_prev, features_curr, status):
+    def _filter_good_features(self, features_prev, features_curr, status, error):
         """
         TODO: Filter out features where tracking failed
         
@@ -203,6 +203,7 @@ class SpeedEstimator:
             features_prev: numpy array - features from previous frame
             features_curr: numpy array - features from current frame
             status: numpy array - tracking status (1=good, 0=failed)
+            error: numpy array - tracking error values
             
         Returns:
             tuple: (good_prev, good_curr) - lists of successfully tracked features
@@ -286,7 +287,7 @@ class SpeedEstimator:
         }
 
 # =============================================================================
-# QUICK REFERENCE FOR
+# QUICK REFERENCE
 # =============================================================================
 
 """
