@@ -397,6 +397,11 @@ def get_speed_data():
     """Get current speed data for speed estimation debug mode"""
     try:
         speed_data = robot.get_speed_data()
+        
+        # Add real-time timestamp
+        import time
+        speed_data['timestamp'] = time.time()
+        
         return jsonify(speed_data)
     except Exception as e:
         return jsonify({
@@ -404,14 +409,16 @@ def get_speed_data():
             'current_speed': 0.0,
             'smoothed_speed': 0.0,
             'speed_history': [],
-            'calibrated': False
+            'motor_power': 0,
+            'test_active': False,
+            'timestamp': time.time()
         }), 500
 
 @app.route('/speed_test_control')
 def speed_test_control():
-    """Control speed testing (start/stop movements at specific speeds)"""
+    """Control speed testing with discrete power levels and auto-stop"""
     try:
-        action = request.args.get('action', 'stop')  # start, stop
+        action = request.args.get('action', 'stop')  # start, stop, emergency_stop
         speed = request.args.get('speed', type=int, default=30)
         
         if robot.autonomous_mode:
@@ -420,19 +427,47 @@ def speed_test_control():
                 'message': 'Speed testing disabled during autonomous mode'
             })
         
+        if action == 'start':
+            # Validate speed levels
+            if speed not in [30, 50, 70]:
+                return jsonify({
+                    'success': False,
+                    'message': f'Invalid speed level: {speed}. Use 30, 50, or 70.'
+                })
+        
         success, message = robot.control_speed_test(action, speed)
         
         return jsonify({
             'success': success,
             'message': message,
             'action': action,
-            'speed': speed if action == 'start' else 0
+            'speed': speed if action == 'start' else 0,
+            'duration': 3 if action == 'start' else 0
         })
     except Exception as e:
         return jsonify({
             'success': False,
             'message': f'Speed test error: {str(e)}'
         }), 500
+
+@app.route('/process_speed_frames')
+def process_speed_frames():
+    """Lightweight speed estimation without video streaming"""
+    try:
+        # Get raw frame from camera (no encoding)
+        current_frame = camera.get_frame()
+        
+        # Run speed estimation only (no autonomous processing)
+        speed = robot.calculate_speed_only(current_frame)
+        
+        # Return minimal JSON (not full debug data)
+        return jsonify({
+            'current_speed': speed,
+            'smoothed_speed': robot.get_smoothed_speed(),
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        return jsonify({'current_speed': 0.0, 'smoothed_speed': 0.0, 'error': str(e)})
 
 if __name__ == '__main__':
     try:

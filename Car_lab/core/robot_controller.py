@@ -194,6 +194,14 @@ class RobotController:
             self.debug_data['mode'] = 'Straight Movement'
             console_logger.info("✅ Autonomous straight movement started")
             return True, "Straight movement started"
+
+    def calculate_speed_only(self, current_frame):
+        """Minimal speed calculation without autonomous processing"""
+        if self.speed_estimator and FEATURES_ENABLED['speed_estimation']:
+            speed = self.speed_estimator.estimate_speed(current_frame, self.previous_frame)
+            self.previous_frame = current_frame.copy()  # Store for next calculation
+            return speed
+        return 0.0
     
     def stop_autonomous_mode(self):
         """Stop autonomous mode and return to manual control"""
@@ -280,8 +288,10 @@ class RobotController:
                 display_frame, self.cache_manager, self.timing_utils, self.status_manager, self.sign_detector
             )
         elif self.debug_mode == "speed_estimation":
-            display_frame = self.debug_visualizer.create_week3_debug_frame(
-                display_frame, self.current_speed
+            # Get complete speed data for visualization
+            speed_data = self.get_speed_data()
+            display_frame = self.debug_visualizer.create_speed_estimation_debug_frame(
+                display_frame, self.current_speed, speed_data
             )
         # Default: line_following mode uses existing debug frame
         
@@ -416,9 +426,13 @@ class RobotController:
             'current_speed': 0.0,
             'smoothed_speed': 0.0,
             'speed_history': [],
-            'calibrated': False,
             'motor_power': 0,
-            'test_active': False
+            'test_active': False,
+            'speed_thresholds': {
+                'fast': 0.4,
+                'medium': 0.15,
+                'slow': 0.05
+            }
         }
         
         try:
@@ -430,12 +444,15 @@ class RobotController:
                 
                 # Add current speed
                 speed_data['current_speed'] = round(self.current_speed, 3)
-                speed_data['calibrated'] = self.speed_estimator.is_calibrated()
             
-            # Add motor status
+            # Add motor status from movement controller
             if hasattr(self, '_current_test_speed'):
                 speed_data['motor_power'] = self._current_test_speed
-                speed_data['test_active'] = True
+                speed_data['test_active'] = self._current_test_speed > 0
+            else:
+                # Check if robot is moving manually
+                if self.movement_controller.is_hardware_connected():
+                    speed_data['test_active'] = self.movement_controller.is_moving
             
         except Exception as e:
             print(f"Speed data error: {e}")

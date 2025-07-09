@@ -56,16 +56,83 @@ class DebugVisualizer:
         return self._add_week2_debug_overlay(combined, cache_manager, timing_utils, status_manager)
     
     def create_week3_debug_frame(self, original_frame, current_speed):
-        """Placeholder for Week 3 speed estimation debug frame"""
-        # Add simple speed display for now
+        """Simple placeholder for Week 3 - actual speed estimation uses create_speed_estimation_debug_frame"""
         speed_text = f"Speed: {current_speed:.1f} units/s"
         cv2.putText(original_frame, speed_text, (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
         
         cv2.putText(original_frame, "Speed Estimation Mode (Week 3)", (10, 60), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         
         return original_frame
+
+    def create_speed_estimation_debug_frame(self, original_frame, current_speed, speed_data):
+        """Create comprehensive debug frame for Week 3 speed estimation mode"""
+        debug_frame = original_frame.copy()
+        height, width = debug_frame.shape[:2]
+        
+        # Get speed data
+        smoothed_speed = speed_data.get('smoothed_speed', current_speed)
+        motor_power = speed_data.get('motor_power', 0)
+        test_active = speed_data.get('test_active', False)
+        
+        # Color coding based on speed thresholds
+        if smoothed_speed > 0.4:
+            color = (0, 0, 255)  # Red - fast
+            status = "FAST"
+        elif smoothed_speed > 0.15:
+            color = (0, 165, 255)  # Orange - medium  
+        elif smoothed_speed > 0.05:
+            color = (0, 255, 0)  # Green - slow
+            status = "SLOW"
+        else:
+            color = (128, 128, 128)  # Gray - stopped
+            status = "STOPPED"
+        
+        # Large speed display in center (48px equivalent)
+        speed_text = f"{smoothed_speed:.2f} m/s"
+        font_scale = 2.0
+        thickness = 3
+        text_size = cv2.getTextSize(speed_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)[0]
+        text_x = (width - text_size[0]) // 2
+        text_y = height // 2
+        
+        # Background rectangle for speed text
+        padding = 20
+        cv2.rectangle(debug_frame, 
+                    (text_x - padding, text_y - text_size[1] - padding),
+                    (text_x + text_size[0] + padding, text_y + padding),
+                    (0, 0, 0), -1)
+        
+        # Speed text
+        cv2.putText(debug_frame, speed_text, (text_x, text_y), 
+                cv2.FONT_HERSHEY_SIMPLEX, font_scale, color, thickness)
+        
+        # Status text below speed
+        status_y = text_y + 50
+        cv2.putText(debug_frame, status, (text_x + 20, status_y), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
+        
+        # Motor power display (top left)
+        if test_active and motor_power > 0:
+            power_text = f"Motor: {motor_power}% (TEST ACTIVE)"
+            cv2.putText(debug_frame, power_text, (10, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+        
+        # Speed history indicator (bottom)
+        history = speed_data.get('speed_history', [])
+        if len(history) > 1:
+            avg_speed = sum(history[-5:]) / min(5, len(history))
+            cv2.putText(debug_frame, f"Avg (5 frames): {avg_speed:.2f} m/s", 
+                    (10, height - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+        
+        # Current values (top right)
+        cv2.putText(debug_frame, f"Raw: {current_speed:.3f}", (width - 150, 30), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(debug_frame, f"Smooth: {smoothed_speed:.3f}", (width - 150, 50), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        
+        return debug_frame
     
     def create_speed_estimation_debug_frame(self, original_frame, current_speed, speed_data):
         """Create debug frame for Week 3 speed estimation mode"""
